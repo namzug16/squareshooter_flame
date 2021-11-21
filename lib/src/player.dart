@@ -30,17 +30,21 @@ class Player extends SquareComponent {
 
         if (as != AS.laser) {
           if (movementKeys.contains("A")) dir = Vector2(-1, dir.y);
-          if (!movementKeys.contains("A") && dir.x == -1)
+          if (!movementKeys.contains("A") && dir.x == -1) {
             dir = Vector2(0, dir.y);
+          }
           if (movementKeys.contains("W")) dir = Vector2(dir.x, -1);
-          if (!movementKeys.contains("W") && dir.y == -1)
+          if (!movementKeys.contains("W") && dir.y == -1) {
             dir = Vector2(dir.x, 0);
+          }
           if (movementKeys.contains("D")) dir = Vector2(1, dir.y);
-          if (!movementKeys.contains("D") && dir.x == 1)
+          if (!movementKeys.contains("D") && dir.x == 1) {
             dir = Vector2(0, dir.y);
+          }
           if (movementKeys.contains("S")) dir = Vector2(dir.x, 1);
-          if (!movementKeys.contains("S") && dir.y == 1)
+          if (!movementKeys.contains("S") && dir.y == 1) {
             dir = Vector2(dir.x, 0);
+          }
           if (movementKeys.isEmpty) dir = Vector2.zero();
           if (dir != Vector2.zero()) oldDir = dir;
         }

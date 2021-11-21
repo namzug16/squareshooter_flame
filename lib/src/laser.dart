@@ -5,8 +5,7 @@ import 'package:flame/components.dart';
 import 'package:flame/geometry.dart';
 import 'package:flutter/material.dart';
 
-class Laser extends PositionComponent with Hitbox, Collidable{
-
+class Laser extends PositionComponent with Hitbox, Collidable {
   final Color activatedColor = const Color.fromRGBO(244, 102, 71, 1);
 
   final Color color;
@@ -14,18 +13,18 @@ class Laser extends PositionComponent with Hitbox, Collidable{
   final double dir;
   final double time;
   double _factor = 0;
-  Laser({
-    required Vector2 position,
-    required this.color,
-    required this.dir,
-    required this.owner,
-    this.time = 40.0
-})
+
+  Laser(
+      {required Vector2 position,
+      required this.color,
+      required this.dir,
+      required this.owner,
+      this.time = 40.0})
       : super(
-    position: position,
-    size: Vector2(2000, 2 * pi),
-    anchor: Anchor.centerLeft,
-  );
+          position: position,
+          size: Vector2(2000, 2 * pi),
+          anchor: Anchor.centerLeft,
+        );
 
   @override
   Future<void>? onLoad() async {
@@ -38,6 +37,7 @@ class Laser extends PositionComponent with Hitbox, Collidable{
   }
 
   Color actualColor = Colors.white;
+
   @override
   void render(Canvas canvas) {
     super.render(canvas);
@@ -69,11 +69,12 @@ class Laser extends PositionComponent with Hitbox, Collidable{
   }
 
   bool isActivatedVar = false;
-  void isActivated(){
-    final v1 = sweepAngle.toString().substring(0, 10);
-    final v2 = (2*pi).toString().substring(0, 10);
 
-    if ( v1 == v2){
+  void isActivated() {
+    final v1 = sweepAngle.toString().substring(0, 10);
+    final v2 = (2 * pi).toString().substring(0, 10);
+
+    if (v1 == v2) {
       actualColor = activatedColor;
       isActivatedVar = true;
     }

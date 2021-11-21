@@ -2,16 +2,15 @@ import 'dart:math';
 import 'dart:ui';
 
 import 'package:flame/components.dart';
-
-import 'area.dart';
-import 'helpers.dart';
-import 'square_component.dart';
+import 'package:square_shooter_flame/src/area.dart';
+import 'package:square_shooter_flame/src/helpers.dart';
+import 'package:square_shooter_flame/src/square_component.dart';
 
 class Enemy extends SquareComponent {
   Enemy(
-      String name,
-      Color uniqueColor,
-      ) : super(uniqueColor: uniqueColor, name: name);
+    String name,
+    Color uniqueColor,
+  ) : super(uniqueColor: uniqueColor, name: name);
 
   Area? bulletFinder;
 
@@ -26,7 +25,7 @@ class Enemy extends SquareComponent {
   void update(double dt) {
     super.update(dt);
     pickAState();
-    if(bulletFinder != null){
+    if (bulletFinder != null) {
       bulletFinder!.updatePosition(center);
     }
   }
@@ -60,9 +59,9 @@ class Enemy extends SquareComponent {
     vel = (accelerating ? (vel + Vector2.all(acc)) : (vel - Vector2.all(acc)))
       ..clamp(Vector2.zero(), Vector2.all(maxVelocity));
     position +=
-    (Vector2(vel.x * sin(_angleMovement), vel.y * -cos(_angleMovement)))
-      ..clamp(Vector2(-maxVelocity, -maxVelocity),
-          Vector2(maxVelocity, maxVelocity));
+        (Vector2(vel.x * sin(_angleMovement), vel.y * -cos(_angleMovement)))
+          ..clamp(Vector2(-maxVelocity, -maxVelocity),
+              Vector2(maxVelocity, maxVelocity));
   }
 
   @override
@@ -85,16 +84,16 @@ class Enemy extends SquareComponent {
     final s = size.x;
     List<Rect> result = [];
     final topLeftRect =
-    Rect.fromPoints(Offset.zero, center.toOffset()).deflate(s);
+        Rect.fromPoints(Offset.zero, center.toOffset()).deflate(s);
     if (!topLeftRect.overlaps(enemy.area)) result.add(topLeftRect);
     final topRightRect =
-    Rect.fromPoints(center.toOffset(), win.topRight).deflate(s);
+        Rect.fromPoints(center.toOffset(), win.topRight).deflate(s);
     if (!topRightRect.overlaps(enemy.area)) result.add(topRightRect);
     final bottomLeftRect =
-    Rect.fromPoints(win.bottomLeft, center.toOffset()).deflate(s);
+        Rect.fromPoints(win.bottomLeft, center.toOffset()).deflate(s);
     if (!bottomLeftRect.overlaps(enemy.area)) result.add(bottomLeftRect);
     final bottomRightRect =
-    Rect.fromPoints(center.toOffset(), win.bottomRight).deflate(s);
+        Rect.fromPoints(center.toOffset(), win.bottomRight).deflate(s);
     if (!bottomRightRect.overlaps(enemy.area)) result.add(bottomRightRect);
 
     return result;
@@ -142,17 +141,17 @@ class Enemy extends SquareComponent {
 
     final newPosition = rect != null
         ? Vector2(
-      inverseLerp(Random().nextDouble(), rect.topLeft.dx + size.x,
-          rect.bottomRight.dx - size.x),
-      inverseLerp(Random().nextDouble(), rect.topLeft.dy + size.y,
-          rect.bottomRight.dy - size.y),
-    )
+            inverseLerp(Random().nextDouble(), rect.topLeft.dx + size.x,
+                rect.bottomRight.dx - size.x),
+            inverseLerp(Random().nextDouble(), rect.topLeft.dy + size.y,
+                rect.bottomRight.dy - size.y),
+          )
         : Vector2(
-      inverseLerp(
-          Random().nextDouble(), size.x * 2, window.x - size.x * 2),
-      inverseLerp(
-          Random().nextDouble(), size.y * 2, window.y - size.y * 2),
-    );
+            inverseLerp(
+                Random().nextDouble(), size.x * 2, window.x - size.x * 2),
+            inverseLerp(
+                Random().nextDouble(), size.y * 2, window.y - size.y * 2),
+          );
 
     _isAccelerating = true;
     _distance = center.distanceTo(newPosition);
@@ -263,9 +262,9 @@ class Enemy extends SquareComponent {
     }
   }
 
-  // @override
-  // void onRemove() {
-  //   gameRef.remove(bulletFinder!);
-  //   super.onRemove();
-  // }
+// @override
+// void onRemove() {
+//   gameRef.remove(bulletFinder!);
+//   super.onRemove();
+// }
 }

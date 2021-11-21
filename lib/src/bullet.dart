@@ -4,11 +4,10 @@ import 'package:flame/components.dart';
 import 'package:flame/geometry.dart';
 import 'package:flame/particles.dart';
 import 'package:flutter/material.dart';
-import 'package:square_shooter_flame/src/signals/signals.dart';
+import 'package:square_shooter_flame/main.dart';
+import 'package:square_shooter_flame/src/effects.dart';
 import 'package:square_shooter_flame/src/square_component.dart';
 
-import '../main.dart';
-import 'effects.dart';
 
 class BulletPool extends Component with HasGameRef<SquareShooter> {
   final List<Bullet> bullets = [];
@@ -52,13 +51,12 @@ class BulletPool extends Component with HasGameRef<SquareShooter> {
     const int amountParticles = 10;
     gameRef.add(
       Explosion(
-        position: position,
-        color: color,
-        amountParticles: amountParticles,
-        maxRadius: 150.0,
-        minRadius: 50.0,
-        particleSize: 10
-      ),
+          position: position,
+          color: color,
+          amountParticles: amountParticles,
+          maxRadius: 150.0,
+          minRadius: 50.0,
+          particleSize: 10),
     );
     gameRef.add(
       ShockWave(
@@ -71,7 +69,7 @@ class BulletPool extends Component with HasGameRef<SquareShooter> {
 }
 
 class Bullet extends PositionComponent
-    with HasGameRef<SquareShooter>, Hitbox, Collidable{
+    with HasGameRef<SquareShooter>, Hitbox, Collidable {
   Color _color = Colors.white;
   bool isActive = false;
   String owner = '';

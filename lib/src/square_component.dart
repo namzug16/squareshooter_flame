@@ -6,21 +6,18 @@ import 'package:flame/geometry.dart';
 import 'package:flutter/material.dart';
 import 'package:square_shooter_flame/main.dart';
 import 'package:square_shooter_flame/src/bullet.dart';
+import 'package:square_shooter_flame/src/effects.dart';
 import 'package:square_shooter_flame/src/helpers.dart';
 import 'package:square_shooter_flame/src/laser.dart';
-import 'package:square_shooter_flame/src/signals/signals.dart';
-
-import 'effects.dart';
-
 // Attack States
 enum AS { shoot, laser, none }
 // Life States
 enum LS { alive, dead }
 // Movement States
-enum MS { move, stun}
+enum MS { move, stun }
 
 class SquareComponent extends PositionComponent
-    with HasGameRef<SquareShooter>, Hitbox, Collidable{
+    with HasGameRef<SquareShooter>, Hitbox, Collidable {
   static const Color primaryColor = Color(0xFFFFFFFF);
   static const Color stunnedColor = Color.fromRGBO(244, 102, 71, 1);
   final Color uniqueColor;
@@ -48,7 +45,7 @@ class SquareComponent extends PositionComponent
     bulletPool = bPool;
   }
 
-  void activate(){
+  void activate() {
     ls = LS.alive;
   }
 
@@ -78,17 +75,22 @@ class SquareComponent extends PositionComponent
     addHitbox(HitboxRectangle(relation: Vector2.all(1)));
   }
 
-  Rect area = Rect.fromCenter(center: Offset.zero, width: 10, height: 10,);
-  void updateArea(){
-    final s = size.x*6;
+  Rect area = Rect.fromCenter(
+    center: Offset.zero,
+    width: 10,
+    height: 10,
+  );
+
+  void updateArea() {
+    final s = size.x * 6;
     area = Rect.fromCenter(center: center.toOffset(), width: s, height: s);
   }
 
   @override
-  void update(double dt){
+  void update(double dt) {
     super.update(dt);
     updateRotation();
-    if(ls == LS.alive && enemy.ls == LS.alive){
+    if (ls == LS.alive && enemy.ls == LS.alive) {
       stateLogic();
       handleMovement();
       updateAim();
@@ -189,7 +191,7 @@ class SquareComponent extends PositionComponent
   }
 
   void deactivateLaser() {
-    if(laser != null){
+    if (laser != null) {
       isLaserActivated = false;
       gameRef.remove(laser!);
       laser = null;
@@ -198,18 +200,20 @@ class SquareComponent extends PositionComponent
 
   int framesLeftStun = 0;
   static const int framesStun = 90;
-  void stunHandler(){
-    if (framesLeftStun > 0){
+
+  void stunHandler() {
+    if (framesLeftStun > 0) {
       framesLeftStun--;
-      if(framesLeftStun == 0){
+      if (framesLeftStun == 0) {
         setState(MS.move, ms);
       }
     }
   }
 
   void renderStun(Canvas c) {
-    if(ms == MS.stun){
-      final value = mapValue(framesLeftStun.toDouble(), 0, framesStun.toDouble(), 0.0, 2*pi);
+    if (ms == MS.stun) {
+      final value = mapValue(
+          framesLeftStun.toDouble(), 0, framesStun.toDouble(), 0.0, 2 * pi);
       final stunnedPaint = Paint()
         ..color = stunnedColor
         ..style = PaintingStyle.stroke
@@ -237,7 +241,7 @@ class SquareComponent extends PositionComponent
           ms = newState;
           break;
         case MS.stun:
-          if(oldState != MS.stun){
+          if (oldState != MS.stun) {
             framesLeftStun = framesStun;
             setState(AS.none, as);
             color = stunnedColor;
@@ -246,7 +250,7 @@ class SquareComponent extends PositionComponent
           break;
       }
     } else if (newState.runtimeType == AS) {
-      if(ms != MS.stun){
+      if (ms != MS.stun) {
         switch (newState) {
           case AS.shoot:
             color = uniqueColor;
@@ -294,30 +298,20 @@ class SquareComponent extends PositionComponent
       }
     } else if (newState.runtimeType == LS) {
       ls = newState;
-      if(ls == LS.dead){
+      if (ls == LS.dead) {
         setState(MS.move, ms);
         setState(AS.none, as);
       }
     }
   }
 
-  void destroy(){
+  void destroy() {
     color = Colors.black;
-    gameRef.add(Explosion(position: center, color: stunnedColor, amountParticles: 60));
-    gameRef.add(ShockWave(position: center, color: stunnedColor, maxRadius: 1000));
+    gameRef.add(
+        Explosion(position: center, color: stunnedColor, amountParticles: 60));
+    gameRef
+        .add(ShockWave(position: center, color: stunnedColor, maxRadius: 1000));
     gameRef.endGame();
-  }
-
-  @override
-  void onSignalReceived(String signal, [Map<String, dynamic>? payload]){
-    // TODO find out the fucks
-    // if (signal == name+'_STUNNED'){
-    //   setState(MS.stun, ms);
-    // }else if (signal == name+'_DEAD'){
-    //   print('should be deado');
-    //   setState(LS.dead);
-    //   destroy();
-    // }
   }
 
   bool insideEnemyLaserAim = false;
@@ -327,12 +321,12 @@ class SquareComponent extends PositionComponent
     super.onCollision(intersectionPoints, other);
     if (other is Laser && other.owner != name) {
       insideEnemyLaserAim = true;
-      if(other.isActivatedVar){
+      if (other.isActivatedVar) {
         setState(LS.dead);
         gameRef.longShake();
         destroy();
       }
-    }else if(other is Bullet && other.owner != name){
+    } else if (other is Bullet && other.owner != name) {
       setState(MS.stun, ms);
     }
   }
@@ -345,4 +339,3 @@ class SquareComponent extends PositionComponent
     }
   }
 }
-

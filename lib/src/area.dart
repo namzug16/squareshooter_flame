@@ -1,8 +1,6 @@
-
 import 'package:flame/components.dart';
 import 'package:flame/geometry.dart';
-
-import 'bullet.dart';
+import 'package:square_shooter_flame/src/bullet.dart';
 
 class Area extends PositionComponent with Hitbox, Collidable {
   final String owner;
@@ -10,10 +8,10 @@ class Area extends PositionComponent with Hitbox, Collidable {
 
   Area({required this.owner, required this.callback})
       : super(
-    anchor: Anchor.center,
-    size: Vector2.all(100),
-    position: Vector2.zero(),
-  );
+          anchor: Anchor.center,
+          size: Vector2.all(100),
+          position: Vector2.zero(),
+        );
 
   @override
   Future<void>? onLoad() async {
