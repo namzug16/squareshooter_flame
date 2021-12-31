@@ -2,7 +2,7 @@ import 'package:flame/components.dart';
 import 'package:flame/geometry.dart';
 import 'package:square_shooter_flame/src/bullet.dart';
 
-class Area extends PositionComponent with Hitbox, Collidable {
+class Area extends PositionComponent with HasHitboxes, Collidable {
   final String owner;
   final Function(Set<Vector2> intersectionPoints) callback;
 
@@ -16,7 +16,8 @@ class Area extends PositionComponent with Hitbox, Collidable {
   @override
   Future<void>? onLoad() async {
     await super.onLoad();
-    addHitbox(HitboxCircle(definition: 2.5));
+    //TODO(mf): determine new size of area
+    addHitbox(HitboxCircle());
     collidableType = CollidableType.active;
   }
 

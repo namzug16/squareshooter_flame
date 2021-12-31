@@ -17,7 +17,7 @@ enum LS { alive, dead }
 enum MS { move, stun }
 
 class SquareComponent extends PositionComponent
-    with HasGameRef<SquareShooter>, Hitbox, Collidable {
+    with HasGameRef<SquareShooter>, HasHitboxes,Collidable {
   static const Color primaryColor = Color(0xFFFFFFFF);
   static const Color stunnedColor = Color.fromRGBO(244, 102, 71, 1);
   final Color uniqueColor;
@@ -124,7 +124,7 @@ class SquareComponent extends PositionComponent
 
   void shoot() {
     shootTimer ??= Timer(0.4,
-        callback: () => bulletPool.shoot(uniqueColor, position, aimAngle, name),
+        onTick: () => bulletPool.shoot(uniqueColor, position, aimAngle, name),
         repeat: true)
       ..start();
     if (!shootTimer!.isRunning()) shootTimer!.start();

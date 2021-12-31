@@ -1,4 +1,3 @@
-
 import 'package:flame/components.dart';
 import 'package:flame/effects.dart';
 import 'package:flame/input.dart';
@@ -12,25 +11,28 @@ class ButtonComponent extends PositionComponent with Tappable {
     required this.callback,
   }) : super(anchor: Anchor.center, position: position, size: Vector2(100, 50));
 
-  static const textConfig = TextPaintConfig(
+  static const textStyle = TextStyle(
     color: Colors.black,
   );
-  final textPaint = TextPaint(config: textConfig);
+  final textPaint = TextPaint(style: textStyle);
 
   @override
   Future<void>? onLoad() async {
     await super.onLoad();
-    add(TextComponent("START", textRenderer: textPaint)
+    add(TextComponent(text: "START", textRenderer: textPaint)
       ..anchor = Anchor.center
       ..x = size.x / 2
       ..y = size.y / 2);
     add(
-      ScaleEffect(
-          scale: Vector2.all(1.2),
+      ScaleEffect.to(
+        Vector2.all(1.2),
+        EffectController(
+          duration: 0.2,
           curve: Curves.linear,
-          speed: 0.2,
-          isInfinite: true,
-          isAlternating: true),
+          infinite: true,
+          alternate: true,
+        ),
+      ),
     );
   }
 

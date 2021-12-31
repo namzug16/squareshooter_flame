@@ -69,7 +69,7 @@ class BulletPool extends Component with HasGameRef<SquareShooter> {
 }
 
 class Bullet extends PositionComponent
-    with HasGameRef<SquareShooter>, Hitbox, Collidable {
+    with HasGameRef<SquareShooter>, HasHitboxes, Collidable {
   Color _color = Colors.white;
   bool isActive = false;
   String owner = '';

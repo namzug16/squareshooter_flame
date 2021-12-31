@@ -26,7 +26,7 @@ void main() {
 }
 
 class SquareShooter extends FlameGame
-    with KeyboardEvents, HasCollidables, HasTappableComponents {
+    with KeyboardEvents, HasCollidables, HasTappables {
   late BulletPool bulletPool;
 
   @override
@@ -165,16 +165,19 @@ class SquareShooter extends FlameGame
   }
 
   void endGame() {
-    final timer = Timer(3, callback: () {
-      if (gameStarted == true) {
-        restartGame(true);
-        gameStarted = false;
-      } else {
-        restartGame(false);
-      }
-    })
-      ..start();
-    add(TimerComponent(timer));
+    add(
+      TimerComponent(
+        period: 3,
+        onTick: () {
+          if (gameStarted == true) {
+            restartGame(true);
+            gameStarted = false;
+          } else {
+            restartGame(false);
+          }
+        },
+        removeOnFinish: true,
+      ),
+    );
   }
 }
-

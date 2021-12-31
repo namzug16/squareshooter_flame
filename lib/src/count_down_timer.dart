@@ -1,6 +1,4 @@
 import 'dart:math';
-import 'dart:ui';
-
 import 'package:flame/components.dart';
 import 'package:flutter/material.dart';
 import 'package:square_shooter_flame/src/helpers.dart';
@@ -15,7 +13,8 @@ class CountDownTimer extends TimerComponent {
       this.position,
       this.showText,
       ) : super(
-    Timer(3.0)..start(),
+    period: 3,
+    removeOnFinish: true,
   );
 
   @override

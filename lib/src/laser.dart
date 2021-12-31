@@ -1,11 +1,9 @@
 import 'dart:math';
-import 'dart:ui';
-
 import 'package:flame/components.dart';
 import 'package:flame/geometry.dart';
 import 'package:flutter/material.dart';
 
-class Laser extends PositionComponent with Hitbox, Collidable {
+class Laser extends PositionComponent with HasHitboxes, Collidable {
   final Color activatedColor = const Color.fromRGBO(244, 102, 71, 1);
 
   final Color color;
