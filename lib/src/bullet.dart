@@ -1,8 +1,6 @@
 import 'dart:math';
-import 'dart:ui';
 import 'package:flame/components.dart';
 import 'package:flame/geometry.dart';
-import 'package:flame/particles.dart';
 import 'package:flutter/material.dart';
 import 'package:square_shooter_flame/main.dart';
 import 'package:square_shooter_flame/src/effects.dart';
@@ -16,29 +14,10 @@ class BulletPool extends Component with HasGameRef<SquareShooter> {
   Future<void>? onLoad() async {
     await super.onLoad();
     for (var i = 0; i < 20; i++) {
-      bullets.add(Bullet()
-        ..prepare(this)
-        ..onLoad());
+      final bullet = Bullet();
+      children.add(bullet);
+      bullets.add(bullet);
     }
-    gameRef.collidables.addAll(bullets);
-  }
-
-  @override
-  void render(Canvas canvas) {
-    super.render(canvas);
-    bullets.where((element) => element.isActive).forEach((element) {
-      canvas.save();
-      element.render(canvas);
-      canvas.restore();
-    });
-  }
-
-  @override
-  void update(double dt) {
-    super.update(dt);
-    bullets.where((element) => element.isActive).forEach((element) {
-      element.update(dt);
-    });
   }
 
   void shoot(Color color, Vector2 position, double angle, String owner) {
@@ -76,15 +55,17 @@ class Bullet extends PositionComponent
 
   Bullet() : super(size: Vector2(40, 8), anchor: Anchor.center);
 
-  static const double vel = 20;
+  static const double vel = 30;
 
   @override
   void render(Canvas canvas) {
-    super.render(canvas);
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(size.toRect(), const Radius.circular(5)),
-      Paint()..color = _color,
-    );
+    if(isActive) {
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(size.toRect(), const Radius.circular(5)),
+        Paint()..color = _color,
+      );
+      // renderHitboxes(canvas);
+    }
   }
 
   @override

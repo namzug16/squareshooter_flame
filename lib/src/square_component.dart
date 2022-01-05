@@ -9,6 +9,7 @@ import 'package:square_shooter_flame/src/bullet.dart';
 import 'package:square_shooter_flame/src/effects.dart';
 import 'package:square_shooter_flame/src/helpers.dart';
 import 'package:square_shooter_flame/src/laser.dart';
+
 // Attack States
 enum AS { shoot, laser, none }
 // Life States
@@ -17,7 +18,7 @@ enum LS { alive, dead }
 enum MS { move, stun }
 
 class SquareComponent extends PositionComponent
-    with HasGameRef<SquareShooter>, HasHitboxes,Collidable {
+    with HasGameRef<SquareShooter>, HasHitboxes, Collidable {
   static const Color primaryColor = Color(0xFFFFFFFF);
   static const Color stunnedColor = Color.fromRGBO(244, 102, 71, 1);
   final Color uniqueColor;
@@ -52,20 +53,37 @@ class SquareComponent extends PositionComponent
   @override
   void render(Canvas canvas) {
     canvas.save();
-    super.render(canvas);
     // ! hitboxes
     // renderHitboxes(canvas);
+    canvas.translate(size.x * 0.5, size.x * 0.5);
+    canvas.rotate(_angle);
     canvas.drawRRect(
-        RRect.fromRectAndRadius(size.toRect(), const Radius.circular(5)),
+        RRect.fromRectAndRadius(
+          Rect.fromCircle(
+            center: Offset.zero,
+            radius: size.x * 0.5,
+          ),
+          const Radius.circular(5),
+        ),
         Paint()..color = color);
     canvas.restore();
     canvas.save();
     renderAim(canvas);
     canvas.restore();
+    canvas.save();
     renderStun(canvas);
+    canvas.restore();
     // ? render area
     // canvas.save();
-    // canvas.drawRect(area, Paint()..color=Colors.blue.withOpacity(0.3));
+    // final areaSize = area.width;
+    // canvas.drawRect(
+    //     Rect.fromLTWH(
+    //       width*0.5 - areaSize * 0.5,
+    //       width*0.5 - areaSize * 0.5,
+    //       areaSize,
+    //       areaSize,
+    //     ),
+    //     Paint()..color = Colors.blue.withOpacity(0.3));
     // canvas.restore();
   }
 
@@ -114,9 +132,10 @@ class SquareComponent extends PositionComponent
   void handleMovement() {}
 
   double rotation = 0.02;
+  double _angle = 0;
 
   void updateRotation() {
-    angle += rotation + rotation * (vel.x > vel.y ? vel.x : vel.y);
+    _angle += rotation + rotation * (vel.x > vel.y ? vel.x : vel.y);
   }
 
   Timer? shootTimer;
@@ -146,16 +165,11 @@ class SquareComponent extends PositionComponent
         ..style = PaintingStyle.stroke
         ..strokeWidth = 5
         ..strokeCap = StrokeCap.round;
-
-      c.drawLine(
-          center.toOffset() +
-              Offset(
-                  startAimSize * sin(aimAngle), startAimSize * -cos(aimAngle)),
-          center.toOffset() +
-              Offset(aimSize * sin(aimAngle), aimSize * -cos(aimAngle)),
-          aimPaint);
+      c.translate(size.x / 2, size.x / 2);
+      final angle = aimAngle;
+      c.drawLine(Offset(startAimSize * sin(angle), startAimSize * -cos(angle)),
+          Offset(aimSize * sin(angle), aimSize * -cos(angle)), aimPaint);
       c.save();
-      c.translate(position.x, position.y);
       c.rotate(aimAngle - pi / 2);
       c.drawArc(Rect.fromCircle(center: Offset.zero, radius: 60), 0, -pi / 4,
           false, aimPaint);
@@ -221,7 +235,12 @@ class SquareComponent extends PositionComponent
       c.save();
       c.drawArc(
           Rect.fromCenter(
-              center: center.toOffset(), width: width * 2, height: height * 2),
+              center: Offset(
+                size.x / 2,
+                size.x / 2,
+              ),
+              width: width * 2,
+              height: height * 2),
           0,
           2 * pi,
           false,
@@ -233,7 +252,6 @@ class SquareComponent extends PositionComponent
   void stateLogic() {}
 
   void setState(dynamic newState, [dynamic oldState]) {
-    // TODO fix stunned state change color
     if (newState.runtimeType == MS) {
       switch (newState) {
         case MS.move:

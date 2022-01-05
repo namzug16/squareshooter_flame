@@ -15,13 +15,10 @@ class CountDownTimer extends TimerComponent {
       ) : super(
     period: 3,
     removeOnFinish: true,
+    onTick: (){
+      callback.call();
+    },
   );
-
-  @override
-  void onRemove() {
-    super.onRemove();
-    callback.call();
-  }
 
   double sweepAngle = 0;
   int time = 0;
@@ -35,7 +32,7 @@ class CountDownTimer extends TimerComponent {
 
   @override
   void render(Canvas canvas) {
-    super.render(canvas);
+    canvas.save();
     canvas.translate(position.x - size / 2, position.y - size / 2);
     canvas.drawArc(Vector2.all(size).toRect(), 0, sweepAngle, false, paint);
     if (showText) {
@@ -50,6 +47,7 @@ class CountDownTimer extends TimerComponent {
       tp.paint(
           canvas, Offset(size / 2 - tp.width / 2, size / 2 - tp.height / 2));
     }
+    canvas.restore();
   }
 
   @override

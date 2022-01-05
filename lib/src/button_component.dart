@@ -27,7 +27,7 @@ class ButtonComponent extends PositionComponent with Tappable {
       ScaleEffect.to(
         Vector2.all(1.2),
         EffectController(
-          duration: 0.2,
+          duration: 0.5,
           curve: Curves.linear,
           infinite: true,
           alternate: true,

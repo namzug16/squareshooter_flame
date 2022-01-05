@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:flame/components.dart';
 import 'package:flame/geometry.dart';
 import 'package:square_shooter_flame/src/bullet.dart';
@@ -16,9 +18,13 @@ class Area extends PositionComponent with HasHitboxes, Collidable {
   @override
   Future<void>? onLoad() async {
     await super.onLoad();
-    //TODO(mf): determine new size of area
-    addHitbox(HitboxCircle());
+    addHitbox(HitboxCircle(normalizedRadius: 2.5));
     collidableType = CollidableType.active;
+  }
+
+  @override
+  render(Canvas canvas) {
+    // renderHitboxes(canvas);
   }
 
   void updatePosition(Vector2 newPosition) {
