@@ -1,16 +1,24 @@
-# square_shooter_flame
+<div align="center">
+    <h1>Square Shooter 🟩 - Flame 🔥</h1>
+</div>
 
-A new Flutter project.
+<div style="position: relative; padding-bottom: 56.25%; height: 0;">
 
-## Getting Started
+<iframe src="https://www.loom.com/embed/7dc3ec90976c46739c2256348ea71d3a" frameborder="0" webkitallowfullscreen mozallowfullscreen allowfullscreen style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;"></iframe>
 
-This project is a starting point for a Flutter application.
+</div>
 
-A few resources to get you started if this is your first Flutter project:
+<h4 align="center"> 
+	Ready to play❔❔
+</h4>
 
-- [Lab: Write your first Flutter app](https://flutter.dev/docs/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://flutter.dev/docs/cookbook)
+## About
+[Square Shooter - Flame](https://github.com/namzug16/squareshooter_flame) is the
+implementation of the original [Square Shooter](https://github.com/namzug16/square-shooter) 
+using [Flame](https://github.com/flame-engine/flame) 🔥 game engine. 
 
-For help getting started with Flutter, view our
-[online documentation](https://flutter.dev/docs), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+## ✔ Try it out!!
+[Square Shooter - Flame](https://namzug16.github.io/squareshooter_flame/#/) play the game, or just stare at the AI battling 🔫🔫
+
+## 📝 Status
+Still finding bugs 🔍 and improving the game 🚧

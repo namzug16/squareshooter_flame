@@ -109,7 +109,7 @@ class SquareShooter extends FlameGame
   void setUpAiShowCase() {
     children.clear();
 
-    add(UI());
+    // add(UI());
     final bulletPool = BulletPool();
     add(bulletPool);
 
