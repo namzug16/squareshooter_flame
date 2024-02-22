@@ -34,7 +34,7 @@ class UI extends FlameGame
       ButtonComponent(
         position: Vector2(gameRef.size.x / 2, gameRef.size.y / 2),
         callback: () {
-          gameRef.setUpGame();
+          // gameRef.setUpGame();
         },
       ),
     );
