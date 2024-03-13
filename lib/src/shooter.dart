@@ -1,63 +1,119 @@
-import 'dart:math';
-
 import 'package:flame/components.dart';
 import 'package:flame_forge2d/flame_forge2d.dart';
 import 'package:flutter/material.dart';
-import 'package:square_shooter_flame/finite_state_machina/finite_state_machina.dart';
+import 'package:square_shooter_flame/behavior_tree/bt_stateless.dart';
 import 'package:square_shooter_flame/main.dart';
 import 'package:square_shooter_flame/src/bullet.dart';
-import 'package:square_shooter_flame/src/helpers.dart';
 import 'package:square_shooter_flame/src/laser.dart';
-import 'package:square_shooter_flame/src/machines/shooter_attack_state_machine.dart';
-import 'package:square_shooter_flame/src/machines/shooter_state_machine.dart';
+import 'package:square_shooter_flame/src/progress_component.dart';
 
-class Shooter extends BodyComponent<SquareShooter>
-    with ContactCallbacks, HasFiniteStateMachines<Shooter> {
-  /// When shooter is just moving
-  static const Color primaryColor = Color(0xFFFFFFFF);
+class Shooter extends BodyComponent<SquareShooter> with ContactCallbacks {
+  // static const Color primaryColor = Color(0xFFFFFFFF);
 
-  /// When shooter is stunned
   static const Color stunnedColor = Color.fromRGBO(244, 102, 71, 1);
 
-  /// When shooter is attacking
   final Color color;
-
-  /// Actual color of the body
-  ///
-  /// Used to change the color of the body when stunned, moving or attacking
-  late Color bodyColor;
 
   final double size;
 
   final Vector2 initialPosition;
 
-  /// Can be intended as "isAlive"
-  /// Used to check if the game has started or no
-  bool isActive = true;
-
-  final FiniteStateMachine<Shooter> attackFSM;
-
-  final FiniteStateMachine<Shooter> baseFSM;
-
   Shooter({
     required this.color,
     required this.initialPosition,
     this.size = 3,
-    required this.attackFSM,
-    required this.baseFSM,
-  });
+  }) : bodyColor = color;
+
+  Color bodyColor;
+
+  void resetColor() => bodyColor = color;
+
+  /// Used to check if the game has started or no
+  bool isActive = true;
+
+  bool isDead = false;
+
+  //NOTE: Stun {{{
+
+  bool hasCollidedWithBullet = false;
+
+  bool isStunned = false;
+
+  TimerComponent? _stunTimer;
+
+  bool setStunnedValues(double dt) {
+    bodyColor = stunnedColor;
+    // setVelocityLimit(0.1);
+    return true;
+  }
+
+  bool? tickStunTimer(double dt) {
+    if (_stunTimer == null) {
+      _stunTimer = TimerComponent(
+        period: 1,
+        removeOnFinish: true,
+      );
+      add(_stunTimer!);
+      add(ProgressComponent(lowerBound: 0, upperBound: 0.8, period: 1, onTick: () {}));
+      return null;
+    }
+
+    if (_stunTimer?.isRemoved ?? false) {
+      _stunTimer = null;
+      isStunned = false;
+      return true;
+    }
+
+    return null;
+  }
+
+  //}}}
+
+  //NOTE: Attack {{{
+
+  bool get isAttacking => bulletCreator.timer.isRunning();
+
+  Vector2 getDirectionVectorToTarget() {
+    final targetPosition = target?.body.position ?? Vector2.zero();
+    return (targetPosition - body.position).normalized();
+  }
+
+  void _createBullet() {
+    if (target == null) return;
+
+    final dv = getDirectionVectorToTarget();
+
+    final padding = size * 1.8;
+
+    final bullet = Bullet(
+      owner: this,
+      color: color,
+      size: size * 0.3,
+      /// initial position will be the center of the shooter
+      /// plus the size plus a padding towards the target position
+      initialPosition: body.position + (dv * padding),
+      dir: dv,
+    );
+    gameRef.add(bullet);
+  }
+
+  bool attack(double dt) {
+    bodyColor = color;
+    // setVelocityLimit(0.5);
+    if (!bulletCreator.timer.isRunning()) {
+      bulletCreator.timer.start();
+    }
+    return true;
+  }
+
+  bool stopAttack(double dt) {
+    bulletCreator.timer.stop();
+    return true;
+  }
+
+  //}}}
 
   Shooter? target;
-
-  void registerTarget(Shooter t) {
-    target = t;
-  }
-
-  /// So that we do not have the reference of the target when
-  /// it has been destroyed
-  void unregisterTarget() {
-    target = null;
-  }
 
   /// Bullet logic should have been inside the
   /// [ShooterAttackStateShoot] state but
@@ -75,10 +131,6 @@ class Shooter extends BodyComponent<SquareShooter>
     );
   }
 
-  bool get isStunned => attackFSM.state is ShooterAttackStateStun;
-
-  bool get isDead => baseFSM.state is ShooterStateDead;
-
   @override
   Future<void> onLoad() async {
     await super.onLoad();
@@ -91,16 +143,12 @@ class Shooter extends BodyComponent<SquareShooter>
     );
     add(bulletCreator);
     paint = Paint()..color = Colors.transparent;
-    bodyColor = primaryColor;
-
-    /// EACH FSM HAS A LEVEL OF PRIORITY
-    registerFSM(baseFSM);
-    registerFSM(attackFSM);
   }
 
   @override
   Body createBody() {
     final shape = CircleShape()..radius = size;
+
     final fixtureDef = FixtureDef(shape)
       ..userData = this
       ..restitution = 0.0
@@ -140,8 +188,7 @@ class Shooter extends BodyComponent<SquareShooter>
   double rotation = 0;
 
   void _updateRotation() {
-    rotation +=
-        _rotationFactor + _rotationFactor * (vel.x > vel.y ? vel.x : vel.y);
+    rotation += _rotationFactor;
   }
 
   void _limiPositionInsideOfScreen() {
@@ -163,77 +210,120 @@ class Shooter extends BodyComponent<SquareShooter>
   }
 
   /// Velocity values are set as methods so that they can be
-  /// overridden by different types of shooters
-  double get velocityLimit => _velocityLimit;
+  // /// overridden by different types of shooters
+  // double get velocityLimit => _velocityLimit;
+  //
+  // static const double _baseMaxVelocity = 1.5;
+  //
+  // double _velocityLimit = _baseMaxVelocity;
+  //
+  // void setVelocityLimit(double? limit) {
+  //   if (limit == null) {
+  //     _velocityLimit = maxVelocity();
+  //     return;
+  //   }
+  //   _velocityLimit = limit;
+  // }
 
-  static const double _baseMaxVelocity = 1.5;
+  // double maxVelocity() => _baseMaxVelocity;
 
-  double _velocityLimit = _baseMaxVelocity;
-
-  void setVelocityLimit(double? limit) {
-    if (limit == null) {
-      _velocityLimit = maxVelocity();
-      return;
-    }
-    _velocityLimit = limit;
-  }
-
-  double maxVelocity() => _baseMaxVelocity;
-
-  double acceleration() => 0.1;
-
-  double deceleration() => 0.05;
-
-  /// Actual velocity of the shooter
-  Vector2 vel = Vector2(0, 0);
-
-  void updateVelocity(bool isDecelerating) {
-    vel = (isDecelerating
-        ? vel - Vector2.all(deceleration())
-        : vel + Vector2.all(acceleration()))
-      ..clamp(Vector2.zero(), Vector2.all(velocityLimit));
-  }
-
-  double getAngleBetweenTarget() {
-    final targetPosition = target?.body.position ?? Vector2.zero();
-    return angleFrom(body.position, targetPosition);
-  }
-
-  void _createBullet() {
-    if (target == null) return;
-
-    final angleBetween = getAngleBetweenTarget();
-
-    final padding = size * 1.8;
-
-    final bullet = Bullet(
-      owner: this,
-      color: color,
-      size: size * 0.4,
-
-      /// initial position will be the center of the shooter
-      /// plus the size plus a padding towards the target position
-      initialPosition: body.position +
-          Vector2(padding * sin(angleBetween), padding * -cos(angleBetween)),
-      targetPosition: target!.body.position,
-    );
-    gameRef.add(bullet);
-  }
-
-  void startFire() => bulletCreator.timer.start();
-
-  void stopFire() => bulletCreator.timer.stop();
+  // double acceleration() => 0.1;
+  //
+  // double deceleration() => 0.05;
+  //
+  // Vector2 vel = Vector2(0, 0);
+  //
+  // void updateVelocity(bool isDecelerating) {
+  //   vel = (isDecelerating ? vel - Vector2.all(deceleration()) : vel + Vector2.all(acceleration()))..clamp(Vector2.zero(), Vector2.all(velocityLimit));
+  // }
 
   @override
   void beginContact(Object other, Contact contact) {
     super.beginContact(other, contact);
     if (other is LaserComponent && other.owner != this && other.activated) {
-      baseFSM.setState(ShooterStateDead());
-      other.owner.unregisterTarget();
+      isDead = true;
       return;
     }
     if (other is Bullet && other.owner != this) {
-      attackFSM.setState(ShooterAttackStateStun());
+      isStunned = true;
     }
   }
+
+  //NOTE: MOVEMENT {{{
+    double? movementStepLimit;
+
+    bool? resetMovementStepLimit(double dt) {
+      movementStepLimit = null;
+      return true;
+    }
+
+    BTNode setMovementStepLimit(double step) {
+      return (_) {
+        movementStepLimit = step;
+        return true;
+      };
+    }
+
+    final speed = 10;
+  //}}}
 }
+
+
+  // void render(Canvas canvas) {
+  //   final size = parent.size;
+  //   final angle = parent.getAngleBetweenTarget();
+  //   final aimSize = size * 3;
+  //   final startAimSize = size * 2;
+  //   final aimPaint = Paint()
+  //     ..color = parent.color
+  //     ..style = PaintingStyle.stroke
+  //     ..strokeWidth = 0.3
+  //     ..strokeCap = StrokeCap.round;
+  //   canvas.drawLine(
+  //     Offset(startAimSize * sin(angle), startAimSize * -cos(angle)),
+  //     Offset(aimSize * sin(angle), aimSize * -cos(angle)),
+  //     aimPaint,
+  //   );
+  //   canvas.save();
+  //   canvas.rotate(angle - pi / 2);
+  //   canvas.drawArc(
+  //     Rect.fromCircle(center: Offset.zero, radius: size * 2),
+  //     0,
+  //     -pi / 4,
+  //     false,
+  //     aimPaint,
+  //   );
+  //   canvas.drawArc(
+  //     Rect.fromCircle(center: Offset.zero, radius: size * 2),
+  //     0,
+  //     pi / 4,
+  //     false,
+  //     aimPaint,
+  //   );
+  //   canvas.restore();
+  // }
+
+//NOTE: better movement for components
+// // Example in C#
+// float speed = 5.0f; // speed in units per second
+// float distance = Vector2.Distance(pv1, pv2);
+// float duration = distance / speed;
+//
+// // Within your Update or coroutine:
+// elapsedTime += Time.deltaTime;
+// float t = Mathf.Clamp01(elapsedTime / duration);
+//
+// // Using SmoothStep for easing (acceleration then deceleration)
+// float easedT = Mathf.SmoothStep(0f, 1f, t);
+//
+// // Interpolate position using the eased value
+// Vector2 newPosition = Vector2.Lerp(pv1, pv2, easedT);
+// transform.position = new Vector3(newPosition.x, newPosition.y, transform.position.z);
+//
+// float EaseInOutQuad(float t) {
+//     return t < 0.5f ? 2 * t * t : -1 + (4 - 2 * t) * t;
+// }
+//
+// // Then use it similarly:
+// float easedT = EaseInOutQuad(t);
+// Vector2 newPosition = Vector2.Lerp(pv1, pv2, easedT);

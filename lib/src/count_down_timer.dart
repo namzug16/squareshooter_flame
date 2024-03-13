@@ -6,19 +6,17 @@ import 'package:square_shooter_flame/src/helpers.dart';
 class CountDownTimer extends TimerComponent {
   final Function callback;
   final Vector2 position;
-  final bool showText;
 
-  CountDownTimer(
-      this.callback,
-      this.position,
-      this.showText,
-      ) : super(
-    period: 3,
-    removeOnFinish: true,
-    onTick: (){
-      callback.call();
-    },
-  );
+  CountDownTimer({
+    required this.callback,
+    required this.position,
+  }) : super(
+          period: 3,
+          removeOnFinish: true,
+          onTick: () {
+            callback.call();
+          },
+        );
 
   double sweepAngle = 0;
   int time = 0;
@@ -28,25 +26,21 @@ class CountDownTimer extends TimerComponent {
     ..strokeWidth = 5.0
     ..strokeCap = StrokeCap.round;
 
-  static const double size = 300;
+  static const double size = 30;
 
   @override
   void render(Canvas canvas) {
     canvas.save();
     canvas.translate(position.x - size / 2, position.y - size / 2);
     canvas.drawArc(Vector2.all(size).toRect(), 0, sweepAngle, false, paint);
-    if (showText) {
-      final TextPainter tp = TextPainter(
-        text: TextSpan(
-          text: time.toString(),
-          style: const TextStyle(
-              fontSize: 200, fontWeight: FontWeight.bold, color: Colors.white),
-        ),
-        textDirection: TextDirection.ltr,
-      )..layout();
-      tp.paint(
-          canvas, Offset(size / 2 - tp.width / 2, size / 2 - tp.height / 2));
-    }
+    final TextPainter tp = TextPainter(
+      text: TextSpan(
+        text: time.toString(),
+        style: const TextStyle(fontSize: size, fontWeight: FontWeight.bold, color: Colors.white),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    tp.paint(canvas, Offset(size / 2 - tp.width / 2, size / 2 - tp.height / 2));
     canvas.restore();
   }
 

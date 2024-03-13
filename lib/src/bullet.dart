@@ -1,10 +1,7 @@
-import 'dart:math';
-
 import 'package:flame_forge2d/flame_forge2d.dart';
 import 'package:flutter/material.dart';
 import 'package:square_shooter_flame/src/boundary.dart';
 import 'package:square_shooter_flame/src/effects.dart';
-import 'package:square_shooter_flame/src/helpers.dart';
 import 'package:square_shooter_flame/src/shooter.dart';
 
 class Bullet extends BodyComponent with ContactCallbacks {
@@ -12,11 +9,9 @@ class Bullet extends BodyComponent with ContactCallbacks {
     required this.color,
     required this.owner,
     required this.initialPosition,
-    required Vector2 targetPosition,
+    required this.dir,
     required this.size,
-  }) {
-    _angle = angleFrom(initialPosition, targetPosition);
-  }
+  });
 
   /// Used in order to know if the bullet is hitting
   /// its owner or a different component
@@ -26,9 +21,9 @@ class Bullet extends BodyComponent with ContactCallbacks {
 
   final Vector2 initialPosition;
 
-  final double size;
+  final Vector2 dir;
 
-  double _angle = 0.0;
+  final double size;
 
   @override
   Body createBody() {
@@ -50,7 +45,7 @@ class Bullet extends BodyComponent with ContactCallbacks {
     await super.onLoad();
     paint = Paint()..color = color;
 
-    /// ERROR
+    // BUG:
     /// Bullet speed has not been implemented as a force/linearImpulse
     /// because it was not working as expected
     /// 1.- the bullet would not go over a certain speed,
@@ -68,19 +63,15 @@ class Bullet extends BodyComponent with ContactCallbacks {
   void update(double dt) {
     super.update(dt);
     body.setTransform(
-      body.position + Vector2(sin(_angle), -cos(_angle)) * _speed * dt,
+      body.position + (dir * _speed * dt),
       0,
     );
   }
 
   @override
-  void beginContact(
-    Object other,
-    Contact contact,
-  ) {
+  void beginContact(Object other, Contact contact) {
     super.beginContact(other, contact);
-    if (other != owner &&
-        (other is Shooter || other is Bullet || other is Boundary)) {
+    if (other != owner && (other is Shooter || other is Bullet || other is Boundary)) {
       game.add(
         ShockWave(
           position: body.worldCenter,

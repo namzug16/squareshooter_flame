@@ -1,7 +1,6 @@
 import 'package:flame_forge2d/flame_forge2d.dart';
 import 'package:flutter/material.dart';
 
-
 class Boundary extends BodyComponent {
   final Vector2 start;
   final Vector2 end;

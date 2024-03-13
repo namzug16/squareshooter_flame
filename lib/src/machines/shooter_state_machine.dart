@@ -42,7 +42,7 @@ final class ShooterStateDead extends ShooterState {
   @override
   void enterState(ShooterState oldState) {
     parent.bodyColor = Colors.transparent;
-    parent.setVelocityLimit(0);
+    // parent.setVelocityLimit(0);
     parent.game.add(
       Explosion(
         position: parent.body.worldCenter,

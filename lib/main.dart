@@ -4,18 +4,15 @@ import 'package:flame/input.dart';
 import 'package:flame_forge2d/flame_forge2d.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:square_shooter_flame/behavior_tree/behavior_tree.dart';
 import 'package:square_shooter_flame/src/boundary.dart';
-import 'package:square_shooter_flame/src/machines/shooter_state_machine.dart';
-import 'package:square_shooter_flame/src/npc.dart';
+import 'package:square_shooter_flame/src/agent.dart';
+import 'package:square_shooter_flame/src/count_down_timer.dart';
 import 'package:square_shooter_flame/src/player.dart';
 import 'package:square_shooter_flame/src/shooter.dart';
 
 void main() {
   final game = SquareShooter();
-  runApp(
-    SquareShooterGame(game),
-  );
+  runApp(SquareShooterGame(game));
 }
 
 class SquareShooterGame extends StatelessWidget {
@@ -69,12 +66,11 @@ List<Boundary> createBoundaries(SquareShooter game) {
 }
 
 class SquareShooter extends Forge2DGame with KeyboardEvents {
-  SquareShooter()
-      : super(
-          gravity: Vector2.zero(),
-        );
+  SquareShooter() : super(gravity: Vector2.zero());
 
-  Player? player;
+  bool started = false;
+
+  // Player? player;
 
   List<Shooter> shooters = [];
 
@@ -82,76 +78,58 @@ class SquareShooter extends Forge2DGame with KeyboardEvents {
     return screenToWorld(camera.viewport.effectiveSize);
   }
 
-  final temp = Temp();
-
   @override
   Future<void>? onLoad() async {
     await super.onLoad();
+    final World p = world;
     final boundaries = createBoundaries(this);
     for (final boundary in boundaries) {
       add(boundary);
     }
+
     debugMode = true;
-    player = Player(initialPosition: Vector2(60, 60));
-    final npc = NPC(
+
+    // player = Player(initialPosition: Vector2(60, 60));
+
+    final ag1 = Agent(
       color: Colors.yellowAccent,
       initialPosition: Vector2(20, 20),
     );
-    final npc2 = NPC(
+    final ag2 = Agent(
       color: Colors.purpleAccent,
       initialPosition: Vector2(60, 60),
     );
-    final npc3 = NPC(
+    final ag3 = Agent(
       color: Colors.greenAccent,
-      initialPosition: Vector2(100, 100),
+      initialPosition: Vector2(80, 80),
     );
-    // player!.registerEnemy(npc);
-    // npc.registerEnemy(player!);
+
     // add(player!);
-    npc.registerTarget(npc2);
-    npc2.registerTarget(npc);
-    npc3.registerTarget(npc);
-    add(npc);
-    add(npc2);
-    add(npc3);
-    shooters.add(npc);
-    shooters.add(npc2);
-    shooters.add(npc3);
+
+    add(ag1);
+    add(ag2);
+    add(ag3);
+    shooters.addAll([ag1, ag2, ag3]);
+
+    //FIX: add timer animation
+
     add(
-      TimerComponent(
-        period: 2,
-        repeat: true,
-        autoStart: true,
-        onTick: () {
-          final availableShooters = shooters
-              .where((element) =>
-                  element.baseFSM.state.runtimeType != ShooterStateDead)
-              .toList();
-          if (availableShooters.isEmpty) {
-            return;
-          }
-          for (final shooter in availableShooters) {
-            final otherShooters = availableShooters
-                .where((element) => element != shooter)
-                .toList();
-            if (otherShooters.isEmpty) {
-              return;
-            }
-            final closestShooter = otherShooters.reduce(
-              (value, element) {
-                final distance = shooter.body.worldCenter
-                    .distanceToSquared(element.body.worldCenter);
-                final valueDistance = shooter.body.worldCenter
-                    .distanceToSquared(value.body.worldCenter);
-                return distance < valueDistance ? element : value;
-              },
-            );
-            shooter.registerTarget(closestShooter);
-          }
-        },
+      CountDownTimer(
+        position: Vector2(50, 50),
+        callback: () {
+          started = true;
+        }
       ),
     );
-    add(temp);
+    // add(
+    //   TimerComponent(
+    //     period: 2,
+    //     repeat: true,
+    //     autoStart: true,
+    //     onTick: () {
+    //     },
+    //   ),
+    // );
   }
 
   @override
@@ -159,12 +137,12 @@ class SquareShooter extends Forge2DGame with KeyboardEvents {
     RawKeyEvent event,
     Set<LogicalKeyboardKey> keysPressed,
   ) {
-    if (player != null) {
-      player!.keyboardInput(
-        event,
-        keysPressed,
-      );
-    }
+    // if (player != null) {
+    //   player!.keyboardInput(
+    //     event,
+    //     keysPressed,
+    //   );
+    // }
     return KeyEventResult.handled;
   }
 //
@@ -297,56 +275,4 @@ class SquareShooter extends Forge2DGame with KeyboardEvents {
 //     ),
 //   );
 // }
-}
-
-class Temp extends BodyComponent<SquareShooter> with HasBehaviorTrees<Temp> {
-  @override
-  Body createBody() {
-    final shape = CircleShape()..radius = 2;
-    final fixtureDef = FixtureDef(shape)
-      ..restitution = 0.0
-      ..density = 0.0
-      ..friction = 0.0;
-    final bodyDef = BodyDef()
-      ..position = Vector2(10, 10)
-      ..userData = this
-      ..type = BodyType.dynamic
-      ..bullet = true;
-    return world.createBody(bodyDef)..createFixture(fixtureDef);
-  }
-
-  late BehaviorTree<Temp> tree;
-
-  @override
-  Future<void> onLoad() async {
-    tree = BehaviorTree(
-      this,
-      SelectorNode(
-        "select_a_number",
-        [
-          SequenceNode(
-            "sequence_numbers",
-            [
-              ConditionalNode("one", () => true),
-              ConditionalNode("two", () => true),
-              ConditionalNode("three", () => false),
-            ],
-          ),
-          InverterNode(
-            "inverter_one",
-            ConditionalNode("one", () => false),
-          ),
-          ConditionalNode("two", () => false),
-          ConditionalNode("three", () => false),
-          ActionNode("action", (dt) => BTNodeStatus.running),
-          ConditionalNode("four", () => false),
-        ],
-      ),
-      observers: [
-        BTObserverLogger(),
-      ]
-    );
-    registerBehaviorTree(tree);
-    super.onLoad();
-  }
 }
