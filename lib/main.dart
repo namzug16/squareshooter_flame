@@ -1,10 +1,8 @@
 import 'package:flame/components.dart';
 import 'package:flame/game.dart';
 import 'package:flame/input.dart';
-import 'package:flame_forge2d/flame_forge2d.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:square_shooter_flame/src/boundary.dart';
 import 'package:square_shooter_flame/src/agent.dart';
 import 'package:square_shooter_flame/src/count_down_timer.dart';
 import 'package:square_shooter_flame/src/player.dart';
@@ -53,7 +51,7 @@ class SquareShooterGame extends StatelessWidget {
 
 List<Boundary> createBoundaries(SquareShooter game) {
   final topLeft = Vector2.zero();
-  final bottomRight = game.sizeOfScreen();
+  final bottomRight = game.size;
   final topRight = Vector2(bottomRight.x, topLeft.y);
   final bottomLeft = Vector2(topLeft.x, bottomRight.y);
 
@@ -65,18 +63,14 @@ List<Boundary> createBoundaries(SquareShooter game) {
   ];
 }
 
-class SquareShooter extends Forge2DGame with KeyboardEvents {
-  SquareShooter() : super(gravity: Vector2.zero());
+class SquareShooter extends FlameGame with KeyboardEvents {
+  SquareShooter();
 
   bool started = false;
 
   // Player? player;
 
   List<Shooter> shooters = [];
-
-  Vector2 sizeOfScreen() {
-    return screenToWorld(camera.viewport.effectiveSize);
-  }
 
   @override
   Future<void>? onLoad() async {
@@ -134,7 +128,7 @@ class SquareShooter extends Forge2DGame with KeyboardEvents {
 
   @override
   KeyEventResult onKeyEvent(
-    RawKeyEvent event,
+    KeyEvent event,
     Set<LogicalKeyboardKey> keysPressed,
   ) {
     // if (player != null) {
@@ -143,7 +137,7 @@ class SquareShooter extends Forge2DGame with KeyboardEvents {
     //     keysPressed,
     //   );
     // }
-    return KeyEventResult.handled;
+    return KeyEventResult.ignored;
   }
 //
 // @override

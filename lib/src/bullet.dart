@@ -1,17 +1,21 @@
-import 'package:flame_forge2d/flame_forge2d.dart';
+import 'package:flame/collisions.dart';
+import 'package:flame/components.dart';
 import 'package:flutter/material.dart';
-import 'package:square_shooter_flame/src/boundary.dart';
+import 'package:square_shooter_flame/main.dart';
 import 'package:square_shooter_flame/src/effects.dart';
 import 'package:square_shooter_flame/src/shooter.dart';
 
-class Bullet extends BodyComponent with ContactCallbacks {
+class Bullet extends PositionComponent with HasGameReference<SquareShooter>, CollisionCallbacks {
   Bullet({
     required this.color,
     required this.owner,
     required this.initialPosition,
     required this.dir,
-    required this.size,
-  });
+    required double size,
+  }) : super(
+          size: Vector2.all(size),
+          anchor: Anchor.center,
+        );
 
   /// Used in order to know if the bullet is hitting
   /// its owner or a different component
@@ -23,38 +27,25 @@ class Bullet extends BodyComponent with ContactCallbacks {
 
   final Vector2 dir;
 
-  final double size;
-
-  @override
-  Body createBody() {
-    final shape = CircleShape()..radius = size;
-    final fixtureDef = FixtureDef(shape)
-      ..restitution = 0.0
-      ..density = 0.0
-      ..friction = 0.0;
-    final bodyDef = BodyDef()
-      ..position = initialPosition
-      ..userData = this
-      ..type = BodyType.dynamic
-      ..bullet = true;
-    return world.createBody(bodyDef)..createFixture(fixtureDef);
-  }
+  // @override
+  // Body createBody() {
+  //   final shape = CircleShape()..radius = size;
+  //   final fixtureDef = FixtureDef(shape)
+  //     ..restitution = 0.0
+  //     ..density = 0.0
+  //     ..friction = 0.0;
+  //   final bodyDef = BodyDef()
+  //     ..position = initialPosition
+  //     ..userData = this
+  //     ..type = BodyType.dynamic
+  //     ..bullet = true;
+  //   return world.createBody(bodyDef)..createFixture(fixtureDef);
+  // }
 
   @override
   Future<void> onLoad() async {
     await super.onLoad();
-    paint = Paint()..color = color;
-
-    // BUG:
-    /// Bullet speed has not been implemented as a force/linearImpulse
-    /// because it was not working as expected
-    /// 1.- the bullet would not go over a certain speed,
-    /// meaning * 100, * 500, * 1000 would give us the same speed
-    /// 2.- the bullet would sometimes loose speed and collide
-    /// with other bullets due to missing frames, if the game
-    /// gets a bit lag some of the bullets would completely loose
-    /// their speed
-    // body.applyForce((targetPosition - initialPosition) * 100);
+    add(CircleHitbox.relative(1, parentSize: size));
   }
 
   final _speed = 120.0;
@@ -62,26 +53,40 @@ class Bullet extends BodyComponent with ContactCallbacks {
   @override
   void update(double dt) {
     super.update(dt);
-    body.setTransform(
-      body.position + (dir * _speed * dt),
-      0,
-    );
+    position += (dir * _speed * dt);
+
+    if (position.y > game.size.y || position.y < 0 || position.x > game.size.x || position.x < 0) {
+      removeFromParent();
+    }
   }
 
   @override
-  void beginContact(Object other, Contact contact) {
-    super.beginContact(other, contact);
-    if (other != owner && (other is Shooter || other is Bullet || other is Boundary)) {
+  void render(Canvas canvas) {
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(size.toRect(), const Radius.circular(5)),
+      Paint()..color = color,
+    );
+    // renderHitboxes(canvas);
+  }
+
+  @override
+  void onCollisionStart(
+    Set<Vector2> intersectionPoints,
+    PositionComponent other,
+  ) {
+    super.onCollisionStart(intersectionPoints, other);
+
+    if (other != owner && (other is Shooter || other is Bullet)) {
       game.add(
         ShockWave(
-          position: body.worldCenter,
+          position: position,
           color: color,
           maxRadius: 10,
         ),
       );
       game.add(
         Explosion(
-          position: body.worldCenter,
+          position: position,
           color: color,
           amountParticles: 15,
         ),

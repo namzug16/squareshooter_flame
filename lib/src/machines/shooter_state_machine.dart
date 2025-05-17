@@ -45,7 +45,7 @@ final class ShooterStateDead extends ShooterState {
     // parent.setVelocityLimit(0);
     parent.game.add(
       Explosion(
-        position: parent.body.worldCenter,
+        position: parent.position,
         color: parent.color,
         amountParticles: 30,
         maxRadius: 50,
@@ -55,7 +55,7 @@ final class ShooterStateDead extends ShooterState {
     );
     parent.game.add(
       ShockWave(
-        position: parent.body.worldCenter,
+        position: parent.position,
         color: parent.color,
         maxRadius: 50,
       ),

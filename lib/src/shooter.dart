@@ -1,28 +1,24 @@
 import 'package:flame/components.dart';
-import 'package:flame_forge2d/flame_forge2d.dart';
+import 'package:flame/collisions.dart';
 import 'package:flutter/material.dart';
-import 'package:square_shooter_flame/behavior_tree/bt_stateless.dart';
 import 'package:square_shooter_flame/main.dart';
+import 'package:square_shooter_flame/src/behavior_tree/behavior_tree_stateless.dart';
 import 'package:square_shooter_flame/src/bullet.dart';
-import 'package:square_shooter_flame/src/laser.dart';
 import 'package:square_shooter_flame/src/progress_component.dart';
 
-class Shooter extends BodyComponent<SquareShooter> with ContactCallbacks {
-  // static const Color primaryColor = Color(0xFFFFFFFF);
+class Shooter extends PositionComponent with HasGameReference<SquareShooter>, CollisionCallbacks {
 
   static const Color stunnedColor = Color.fromRGBO(244, 102, 71, 1);
 
   final Color color;
-
-  final double size;
 
   final Vector2 initialPosition;
 
   Shooter({
     required this.color,
     required this.initialPosition,
-    this.size = 3,
-  }) : bodyColor = color;
+    double size = 3,
+  }) : bodyColor = color, super(size: Vector2.all(size));
 
   Color bodyColor;
 
@@ -74,8 +70,8 @@ class Shooter extends BodyComponent<SquareShooter> with ContactCallbacks {
   bool get isAttacking => bulletCreator.timer.isRunning();
 
   Vector2 getDirectionVectorToTarget() {
-    final targetPosition = target?.body.position ?? Vector2.zero();
-    return (targetPosition - body.position).normalized();
+    final targetPosition = target?.position ?? Vector2.zero();
+    return (targetPosition - position).normalized();
   }
 
   void _createBullet() {
@@ -83,18 +79,19 @@ class Shooter extends BodyComponent<SquareShooter> with ContactCallbacks {
 
     final dv = getDirectionVectorToTarget();
 
-    final padding = size * 1.8;
+    final padding = size.x * 1.8;
 
     final bullet = Bullet(
       owner: this,
       color: color,
-      size: size * 0.3,
+      size: size.x * 0.3,
       /// initial position will be the center of the shooter
       /// plus the size plus a padding towards the target position
-      initialPosition: body.position + (dv * padding),
+      initialPosition: position + (dv * padding),
       dir: dv,
     );
-    gameRef.add(bullet);
+
+    game.add(bullet);
   }
 
   bool attack(double dt) {
@@ -121,15 +118,17 @@ class Shooter extends BodyComponent<SquareShooter> with ContactCallbacks {
   /// I decided to put it here
   late TimerComponent bulletCreator;
 
-  Rect area() {
-    final size = this.size * 2;
-    return Rect.fromLTWH(
-      body.worldCenter.x - size,
-      body.worldCenter.y - size,
-      size * 2,
-      size * 2,
-    );
-  }
+  // Rect area() {
+  //   final size = this.size * 2;
+  //   return Rect.fromLTWH(
+  //     body.worldCenter.x - size,
+  //     body.worldCenter.y - size,
+  //     size * 2,
+  //     size * 2,
+  //   );
+  // }
+
+  Paint _paint = Paint()..color = Colors.transparent;
 
   @override
   Future<void> onLoad() async {
@@ -142,24 +141,6 @@ class Shooter extends BodyComponent<SquareShooter> with ContactCallbacks {
       onTick: _createBullet,
     );
     add(bulletCreator);
-    paint = Paint()..color = Colors.transparent;
-  }
-
-  @override
-  Body createBody() {
-    final shape = CircleShape()..radius = size;
-
-    final fixtureDef = FixtureDef(shape)
-      ..userData = this
-      ..restitution = 0.0
-      ..density = 0.0
-      ..friction = 0.0;
-
-    final bodyDef = BodyDef()
-      ..position = initialPosition
-      ..type = BodyType.static;
-
-    return world.createBody(bodyDef)..createFixture(fixtureDef);
   }
 
   @override
@@ -175,7 +156,7 @@ class Shooter extends BodyComponent<SquareShooter> with ContactCallbacks {
       RRect.fromRectAndRadius(
         Rect.fromCircle(
           center: Offset.zero,
-          radius: size,
+          radius: size.x,
         ),
         const Radius.circular(1),
       ),
