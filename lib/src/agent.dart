@@ -105,12 +105,12 @@ mixin AgentMovement on Shooter {
   double _elapsed = 0;
 
   bool? hasArrivedToDesiredPosition(double dt) {
-    _end ??= body.position;
-    return body.position.distanceTo(_end!) <= 5;
+    _end ??= position;
+    return position.distanceTo(_end!) <= 5;
   }
 
   bool? setDesiredPositionValues(double dt) {
-    _start = body.position;
+    _start = position;
     _end = getNextPosition();
     final distance = _start.distanceTo(_end!);
     _duration = distance / speed;
@@ -124,18 +124,18 @@ mixin AgentMovement on Shooter {
     double t = min(1.0, _elapsed / _duration);
     t = _ease(t);
     Vector2 newPos = _start + (_end! - _start) * t;
-    body.setTransform(newPos, body.angle);
+    position = newPos;
     return true;
   }
 
   double _ease(double t) => t * t * (3 - 2 * t);
 
   Vector2 getNextPosition() {
-    Vector2 newPosition = body.position;
-    final window = game.sizeOfScreen();
-    while (size * 3 > body.position.distanceTo(newPosition)) {
-      final x = size + Random().nextDouble() * (window.x - 2 * size);
-      final y = size + Random().nextDouble() * (window.y - 2 * size);
+    Vector2 newPosition = position;
+    final window = game.size;
+    while (size.x * 3 > position.distanceTo(newPosition)) {
+      final x = size.x + Random().nextDouble() * (window.x - 2 * size.x);
+      final y = size.y + Random().nextDouble() * (window.y - 2 * size.y);
       newPosition = Vector2(x, y);
     }
     return newPosition;

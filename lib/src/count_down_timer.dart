@@ -26,7 +26,7 @@ class CountDownTimer extends TimerComponent {
     ..strokeWidth = 5.0
     ..strokeCap = StrokeCap.round;
 
-  static const double size = 30;
+  static const double size = 100;
 
   @override
   void render(Canvas canvas) {

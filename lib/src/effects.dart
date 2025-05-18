@@ -17,11 +17,9 @@ class ShockWave extends ParticleSystemComponent {
             child: ComputedParticle(
               renderer: (canvas, particle) {
                 final s = inverseLerp(particle.progress * 2, 10, maxRadius);
-                final rect =
-                    Rect.fromCenter(center: Offset.zero, width: s, height: s);
+                final rect = Rect.fromCenter(center: Offset.zero, width: s, height: s);
                 final paint = Paint()
-                  ..color = color
-                      .withOpacity((1 - particle.progress * 2).clamp(0, 0.5))
+                  ..color = color.withOpacity((1 - particle.progress * 2).clamp(0, 0.5))
                   ..style = PaintingStyle.stroke
                   ..strokeWidth = inverseLerp(particle.progress * 2, 10, 0);
                 canvas.drawArc(rect, 0, pi * 2, false, paint);
@@ -36,9 +34,9 @@ class Explosion extends ParticleSystemComponent {
     required Vector2 position,
     required Color color,
     required int amountParticles,
-    double maxRadius = 20.0,
-    double minRadius = 10.0,
-    double particleSize = 1.0,
+    required double particleSize,
+    required double maxRadius,
+    required double minRadius,
   }) : super(
           particle: TranslatedParticle(
             lifespan: 2.0,
@@ -50,7 +48,7 @@ class Explosion extends ParticleSystemComponent {
                 final radius = inverseLerp(r, minRadius, maxRadius);
                 final angleSection = pi * 2 / amountParticles;
                 return MovingParticle(
-                  curve: const Interval(0.0, 0.3, curve: Curves.decelerate),
+                  curve: const Interval(0.0, 0.1, curve: Curves.decelerate),
                   to: Vector2(
                     sin(i * angleSection) * radius,
                     cos(i * angleSection) * radius,

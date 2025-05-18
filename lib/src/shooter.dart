@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flame/components.dart';
 import 'package:flame/collisions.dart';
 import 'package:flutter/material.dart';
@@ -7,7 +9,6 @@ import 'package:square_shooter_flame/src/bullet.dart';
 import 'package:square_shooter_flame/src/progress_component.dart';
 
 class Shooter extends PositionComponent with HasGameReference<SquareShooter>, CollisionCallbacks {
-
   static const Color stunnedColor = Color.fromRGBO(244, 102, 71, 1);
 
   final Color color;
@@ -17,8 +18,9 @@ class Shooter extends PositionComponent with HasGameReference<SquareShooter>, Co
   Shooter({
     required this.color,
     required this.initialPosition,
-    double size = 3,
-  }) : bodyColor = color, super(size: Vector2.all(size));
+    double size = 60,
+  })  : bodyColor = color,
+        super(size: Vector2.all(size), anchor: Anchor.center, position: initialPosition);
 
   Color bodyColor;
 
@@ -28,6 +30,87 @@ class Shooter extends PositionComponent with HasGameReference<SquareShooter>, Co
   bool isActive = true;
 
   bool isDead = false;
+
+  late SpawnComponent bulletSpawner;
+
+  @override
+  Future<void> onLoad() async {
+    await super.onLoad();
+    debugMode = gameDebugMode;
+    bulletSpawner = SpawnComponent(
+      period: 0.2,
+      selfPositioning: true,
+      factory: (index) {
+        return _createBullet();
+      },
+      autoStart: false,
+    );
+    game.add(bulletSpawner);
+    add(CircleHitbox.relative(
+      1.0,
+      parentSize: size,
+      anchor: anchor,
+      position: size * 0.5,
+    ));
+  }
+
+  @override
+  void render(Canvas canvas) {
+    super.render(canvas);
+    //FIX: render aim when shooting
+    _renderAim(canvas);
+    canvas.save();
+    canvas.translate(size.x * 0.5, size.x * 0.5);
+    canvas.rotate(_rotation);
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromCircle(
+          center: Offset.zero,
+          radius: size.x / 2,
+        ),
+        const Radius.circular(10),
+      ),
+      Paint()..color = bodyColor,
+    );
+    canvas.restore();
+  }
+
+  static const double _rotationFactor = 0.09;
+  double _rotation = 0;
+
+  void _updateRotation() {
+    _rotation += _rotationFactor;
+  }
+
+  void _limiPositionInsideOfScreen() {
+    final gs = game.size;
+    final newPos = Vector2(position.x, position.y)..clamp(Vector2(0, 0), gs);
+    position = newPos;
+  }
+
+  @override
+  void update(double dt) {
+    super.update(dt);
+    _updateRotation();
+    _limiPositionInsideOfScreen();
+  }
+
+  @override
+  void onCollisionStart(
+    Set<Vector2> intersectionPoints,
+    PositionComponent other,
+  ) {
+    super.onCollisionStart(intersectionPoints, other);
+
+    // if (other is LaserComponent && other.owner != this && other.activated) {
+    //   isDead = true;
+    //   return;
+    // }
+
+    if (other is Bullet && other.owner != this) {
+      isStunned = true;
+    }
+  }
 
   //NOTE: Stun {{{
 
@@ -67,222 +150,135 @@ class Shooter extends PositionComponent with HasGameReference<SquareShooter>, Co
 
   //NOTE: Attack {{{
 
-  bool get isAttacking => bulletCreator.timer.isRunning();
+  Shooter? target;
+
+  bool get isAttacking => bulletSpawner.timer.isRunning();
+
+  void _renderAim(Canvas canvas) {
+    if (!isAttacking) return;
+    final dv = getDirectionVectorToTarget();
+    final fv = Vector2(1, 0).normalized();
+    final angle = math.acos(fv.dot(dv));
+    final sign = fv.cross(dv) >= 0 ? 1.0 : -1.0;
+    final signedAngle = angle * sign;
+    final aimSize = size.x * 2.2;
+    final startAimSize = size.x * 1.2;
+    final aimPaint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 5
+      ..strokeCap = StrokeCap.round;
+
+    canvas.save();
+    canvas.translate(size.x * 0.5, size.x * 0.5);
+    canvas.drawLine(
+      (dv * startAimSize).toOffset(),
+      (dv * aimSize).toOffset(),
+      aimPaint,
+    );
+    canvas.restore();
+    canvas.save();
+    canvas.translate(size.x * 0.5, size.x * 0.5);
+    canvas.rotate(signedAngle);
+    canvas.drawArc(
+      Rect.fromCircle(center: Offset.zero, radius: size.x),
+      13 * math.pi / 8,
+      3 * math.pi / 4,
+      false,
+      aimPaint,
+    );
+    canvas.restore();
+  }
 
   Vector2 getDirectionVectorToTarget() {
     final targetPosition = target?.position ?? Vector2.zero();
     return (targetPosition - position).normalized();
   }
 
-  void _createBullet() {
-    if (target == null) return;
-
+  Bullet _createBullet() {
     final dv = getDirectionVectorToTarget();
 
-    final padding = size.x * 1.8;
+    final padding = size.x * 0.5;
 
     final bullet = Bullet(
       owner: this,
       color: color,
-      size: size.x * 0.3,
-      /// initial position will be the center of the shooter
-      /// plus the size plus a padding towards the target position
+      size: size.x * 0.4,
       initialPosition: position + (dv * padding),
       dir: dv,
     );
 
-    game.add(bullet);
+    return bullet;
   }
 
   bool attack(double dt) {
     bodyColor = color;
     // setVelocityLimit(0.5);
-    if (!bulletCreator.timer.isRunning()) {
-      bulletCreator.timer.start();
+    if (!bulletSpawner.timer.isRunning()) {
+      bulletSpawner.timer.start();
     }
     return true;
   }
 
   bool stopAttack(double dt) {
-    bulletCreator.timer.stop();
+    bulletSpawner.timer.stop();
     return true;
   }
 
   //}}}
 
-  Shooter? target;
+  //NOTE: Movement {{{
+  double? movementStepLimit;
 
-  /// Bullet logic should have been inside the
-  /// [ShooterAttackStateShoot] state but
-  /// because I wanted to create only once the bulletCreator
-  /// I decided to put it here
-  late TimerComponent bulletCreator;
-
-  // Rect area() {
-  //   final size = this.size * 2;
-  //   return Rect.fromLTWH(
-  //     body.worldCenter.x - size,
-  //     body.worldCenter.y - size,
-  //     size * 2,
-  //     size * 2,
-  //   );
-  // }
-
-  Paint _paint = Paint()..color = Colors.transparent;
-
-  @override
-  Future<void> onLoad() async {
-    await super.onLoad();
-    // debugMode = true;
-    bulletCreator = TimerComponent(
-      period: 0.3,
-      repeat: true,
-      autoStart: false,
-      onTick: _createBullet,
-    );
-    add(bulletCreator);
+  bool? resetMovementStepLimit(double dt) {
+    movementStepLimit = null;
+    return true;
   }
 
-  @override
-  void render(Canvas canvas) {
-    super.render(canvas);
-    // ! hitboxes
-    // renderHitboxes(canvas);
-    // canvas.translate(size.x * 0.5, size.x * 0.5);
-
-    canvas.save();
-    canvas.rotate(rotation);
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        Rect.fromCircle(
-          center: Offset.zero,
-          radius: size.x,
-        ),
-        const Radius.circular(1),
-      ),
-      Paint()..color = bodyColor,
-    );
-    canvas.restore();
-  }
-
-  static const double _rotationFactor = 0.09;
-  double rotation = 0;
-
-  void _updateRotation() {
-    rotation += _rotationFactor;
-  }
-
-  void _limiPositionInsideOfScreen() {
-    final bottomRight = game.screenToWorld(game.camera.viewport.effectiveSize);
-    body.setTransform(
-      Vector2(
-        body.position.x.clamp(0.0, bottomRight.x),
-        body.position.y.clamp(0.0, bottomRight.y),
-      ),
-      body.angle,
-    );
-  }
-
-  @override
-  void update(double dt) {
-    super.update(dt);
-    _updateRotation();
-    _limiPositionInsideOfScreen();
-  }
-
-  /// Velocity values are set as methods so that they can be
-  // /// overridden by different types of shooters
-  // double get velocityLimit => _velocityLimit;
-  //
-  // static const double _baseMaxVelocity = 1.5;
-  //
-  // double _velocityLimit = _baseMaxVelocity;
-  //
-  // void setVelocityLimit(double? limit) {
-  //   if (limit == null) {
-  //     _velocityLimit = maxVelocity();
-  //     return;
-  //   }
-  //   _velocityLimit = limit;
-  // }
-
-  // double maxVelocity() => _baseMaxVelocity;
-
-  // double acceleration() => 0.1;
-  //
-  // double deceleration() => 0.05;
-  //
-  // Vector2 vel = Vector2(0, 0);
-  //
-  // void updateVelocity(bool isDecelerating) {
-  //   vel = (isDecelerating ? vel - Vector2.all(deceleration()) : vel + Vector2.all(acceleration()))..clamp(Vector2.zero(), Vector2.all(velocityLimit));
-  // }
-
-  @override
-  void beginContact(Object other, Contact contact) {
-    super.beginContact(other, contact);
-    if (other is LaserComponent && other.owner != this && other.activated) {
-      isDead = true;
-      return;
-    }
-    if (other is Bullet && other.owner != this) {
-      isStunned = true;
-    }
-  }
-
-  //NOTE: MOVEMENT {{{
-    double? movementStepLimit;
-
-    bool? resetMovementStepLimit(double dt) {
-      movementStepLimit = null;
+  BTNode setMovementStepLimit(double step) {
+    return (_) {
+      movementStepLimit = step;
       return true;
-    }
+    };
+  }
 
-    BTNode setMovementStepLimit(double step) {
-      return (_) {
-        movementStepLimit = step;
-        return true;
-      };
-    }
-
-    final speed = 10;
+  final speed = 130;
   //}}}
 }
 
-
-  // void render(Canvas canvas) {
-  //   final size = parent.size;
-  //   final angle = parent.getAngleBetweenTarget();
-  //   final aimSize = size * 3;
-  //   final startAimSize = size * 2;
-  //   final aimPaint = Paint()
-  //     ..color = parent.color
-  //     ..style = PaintingStyle.stroke
-  //     ..strokeWidth = 0.3
-  //     ..strokeCap = StrokeCap.round;
-  //   canvas.drawLine(
-  //     Offset(startAimSize * sin(angle), startAimSize * -cos(angle)),
-  //     Offset(aimSize * sin(angle), aimSize * -cos(angle)),
-  //     aimPaint,
-  //   );
-  //   canvas.save();
-  //   canvas.rotate(angle - pi / 2);
-  //   canvas.drawArc(
-  //     Rect.fromCircle(center: Offset.zero, radius: size * 2),
-  //     0,
-  //     -pi / 4,
-  //     false,
-  //     aimPaint,
-  //   );
-  //   canvas.drawArc(
-  //     Rect.fromCircle(center: Offset.zero, radius: size * 2),
-  //     0,
-  //     pi / 4,
-  //     false,
-  //     aimPaint,
-  //   );
-  //   canvas.restore();
-  // }
+// void render(Canvas canvas) {
+//   final size = parent.size;
+//   final angle = parent.getAngleBetweenTarget();
+//   final aimSize = size * 3;
+//   final startAimSize = size * 2;
+//   final aimPaint = Paint()
+//     ..color = parent.color
+//     ..style = PaintingStyle.stroke
+//     ..strokeWidth = 0.3
+//     ..strokeCap = StrokeCap.round;
+//   canvas.drawLine(
+//     Offset(startAimSize * sin(angle), startAimSize * -cos(angle)),
+//     Offset(aimSize * sin(angle), aimSize * -cos(angle)),
+//     aimPaint,
+//   );
+//   canvas.save();
+//   canvas.rotate(angle - pi / 2);
+//   canvas.drawArc(
+//     Rect.fromCircle(center: Offset.zero, radius: size * 2),
+//     0,
+//     -pi / 4,
+//     false,
+//     aimPaint,
+//   );
+//   canvas.drawArc(
+//     Rect.fromCircle(center: Offset.zero, radius: size * 2),
+//     0,
+//     pi / 4,
+//     false,
+//     aimPaint,
+//   );
+//   canvas.restore();
+// }
 
 //NOTE: better movement for components
 // // Example in C#
