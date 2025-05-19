@@ -1,4 +1,4 @@
-import 'dart:math';
+import 'dart:math' as math;
 
 import 'package:flame/components.dart';
 import 'package:square_shooter_flame/src/shooter.dart';
@@ -23,20 +23,23 @@ class Agent extends Shooter with BehaviorTree, AgentMovement {
       sequence([
         (_) => isStunned,
         stopAttack,
-        setStunnedValues,
-        setMovementStepLimit(0.1),
+        setStunnedColor,
+        setMovementStepLimitOnStunned,
         tickStunTimer,
+        resetMovementStepLimit,
+        resetColor,
       ]),
-      forceFailure(resetMovementStepLimit),
       //target selection
       sequence([
         (_) => target == null,
         stopAttack,
         getTarget,
       ]),
+      //target kill
       sequence([
         (_) => target!.isStunned,
         stopAttack,
+        resetMovementStepLimit,
       ]),
       //attack
       sequence([
@@ -49,10 +52,11 @@ class Agent extends Shooter with BehaviorTree, AgentMovement {
             attack,
           ]),
           sequence([
-            setMovementStepLimit(0.3),
+            setMovementStepLimitOnAttack,
             tickAttackTimer,
             setRandomAttackCooldownTimer,
             stopAttack,
+            resetMovementStepLimit,
           ]),
         ]),
       ]),
@@ -74,7 +78,7 @@ class Agent extends Shooter with BehaviorTree, AgentMovement {
   Timer _attackTimer = Timer(0);
 
   bool? setRandomAttackTimer(double dt) {
-    _attackTimer = Timer(Random().nextDouble() * 5 + 1);
+    _attackTimer = Timer(math.Random().nextDouble() * 5 + 1);
     return true;
   }
 
@@ -87,7 +91,7 @@ class Agent extends Shooter with BehaviorTree, AgentMovement {
   Timer _attackCooldownTimer = Timer(0);
 
   bool? setRandomAttackCooldownTimer(double dt) {
-    _attackCooldownTimer = Timer(Random().nextDouble() * 5 + 1);
+    _attackCooldownTimer = Timer(math.Random().nextDouble() * 5 + 1);
     return true;
   }
 
@@ -119,9 +123,8 @@ mixin AgentMovement on Shooter {
   }
 
   bool? move(double dt) {
-    resetColor();
     _elapsed += dt * (movementStepLimit ?? 1);
-    double t = min(1.0, _elapsed / _duration);
+    double t = math.min(1.0, _elapsed / _duration);
     t = _ease(t);
     Vector2 newPos = _start + (_end! - _start) * t;
     position = newPos;
@@ -131,13 +134,38 @@ mixin AgentMovement on Shooter {
   double _ease(double t) => t * t * (3 - 2 * t);
 
   Vector2 getNextPosition() {
-    Vector2 newPosition = position;
-    final window = game.size;
-    while (size.x * 3 > position.distanceTo(newPosition)) {
-      final x = size.x + Random().nextDouble() * (window.x - 2 * size.x);
-      final y = size.y + Random().nextDouble() * (window.y - 2 * size.y);
-      newPosition = Vector2(x, y);
+    final targetPosition = target?.position ?? game.size / 2;
+    final math.Random rng = math.Random();
+    final randomMultiplier = 7 + rng.nextDouble() * 7;
+    double radius = size.x * randomMultiplier;
+    const samples = 20;
+    final step = size.x;
+
+    while (radius > 0) {
+      final Vector2 toA = position - targetPosition;
+      final List<Vector2> possiblePositions = List.generate(samples, (i) {
+        final double angle = i * (2 * math.pi / samples);
+        return Vector2(
+          targetPosition.x + math.cos(angle) * radius,
+          targetPosition.y + math.sin(angle) * radius,
+        );
+      });
+
+      final valid = possiblePositions.where((p) {
+        final bool onScreen = p.x >= 0 && p.y >= 0 && p.x <= game.size.x && p.y <= game.size.y;
+        if (!onScreen) return false;
+
+        final Vector2 toP = p - targetPosition;
+        return toP.dot(toA) >= 0;
+      }).toList();
+
+      if (valid.isNotEmpty) {
+        return valid[rng.nextInt(valid.length)];
+      }
+
+      radius -= step;
     }
-    return newPosition;
+
+    return targetPosition;
   }
 }

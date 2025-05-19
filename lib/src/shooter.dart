@@ -4,7 +4,6 @@ import 'package:flame/components.dart';
 import 'package:flame/collisions.dart';
 import 'package:flutter/material.dart';
 import 'package:square_shooter_flame/main.dart';
-import 'package:square_shooter_flame/src/behavior_tree/behavior_tree_stateless.dart';
 import 'package:square_shooter_flame/src/bullet.dart';
 import 'package:square_shooter_flame/src/progress_component.dart';
 
@@ -23,8 +22,6 @@ class Shooter extends PositionComponent with HasGameReference<SquareShooter>, Co
         super(size: Vector2.all(size), anchor: Anchor.center, position: initialPosition);
 
   Color bodyColor;
-
-  void resetColor() => bodyColor = color;
 
   /// Used to check if the game has started or no
   bool isActive = true;
@@ -57,7 +54,6 @@ class Shooter extends PositionComponent with HasGameReference<SquareShooter>, Co
   @override
   void render(Canvas canvas) {
     super.render(canvas);
-    //FIX: render aim when shooting
     _renderAim(canvas);
     canvas.save();
     canvas.translate(size.x * 0.5, size.x * 0.5);
@@ -112,6 +108,11 @@ class Shooter extends PositionComponent with HasGameReference<SquareShooter>, Co
     }
   }
 
+  bool? resetColor(double dt) {
+    bodyColor = color;
+    return true;
+  }
+
   //NOTE: Stun {{{
 
   bool hasCollidedWithBullet = false;
@@ -120,9 +121,8 @@ class Shooter extends PositionComponent with HasGameReference<SquareShooter>, Co
 
   TimerComponent? _stunTimer;
 
-  bool setStunnedValues(double dt) {
+  bool setStunnedColor(double dt) {
     bodyColor = stunnedColor;
-    // setVelocityLimit(0.1);
     return true;
   }
 
@@ -198,7 +198,7 @@ class Shooter extends PositionComponent with HasGameReference<SquareShooter>, Co
   Bullet _createBullet() {
     final dv = getDirectionVectorToTarget();
 
-    final padding = size.x * 0.5;
+    final padding = size.x * 1.5;
 
     final bullet = Bullet(
       owner: this,
@@ -212,8 +212,6 @@ class Shooter extends PositionComponent with HasGameReference<SquareShooter>, Co
   }
 
   bool attack(double dt) {
-    bodyColor = color;
-    // setVelocityLimit(0.5);
     if (!bulletSpawner.timer.isRunning()) {
       bulletSpawner.timer.start();
     }
@@ -230,77 +228,29 @@ class Shooter extends PositionComponent with HasGameReference<SquareShooter>, Co
   //NOTE: Movement {{{
   double? movementStepLimit;
 
+  bool? canAttack(double dt) {
+    return (target?.distance(this) ?? 0) > size.x * 3; 
+  }
+
   bool? resetMovementStepLimit(double dt) {
     movementStepLimit = null;
     return true;
   }
 
-  BTNode setMovementStepLimit(double step) {
-    return (_) {
-      movementStepLimit = step;
-      return true;
-    };
+  void _setMovementStepLimit(double step) {
+    movementStepLimit = step;
+  }
+
+  bool? setMovementStepLimitOnAttack(double dt) {
+    _setMovementStepLimit(0.03);
+    return true;
+  }
+
+  bool? setMovementStepLimitOnStunned(double dt) {
+    _setMovementStepLimit(0.01);
+    return true;
   }
 
   final speed = 130;
   //}}}
 }
-
-// void render(Canvas canvas) {
-//   final size = parent.size;
-//   final angle = parent.getAngleBetweenTarget();
-//   final aimSize = size * 3;
-//   final startAimSize = size * 2;
-//   final aimPaint = Paint()
-//     ..color = parent.color
-//     ..style = PaintingStyle.stroke
-//     ..strokeWidth = 0.3
-//     ..strokeCap = StrokeCap.round;
-//   canvas.drawLine(
-//     Offset(startAimSize * sin(angle), startAimSize * -cos(angle)),
-//     Offset(aimSize * sin(angle), aimSize * -cos(angle)),
-//     aimPaint,
-//   );
-//   canvas.save();
-//   canvas.rotate(angle - pi / 2);
-//   canvas.drawArc(
-//     Rect.fromCircle(center: Offset.zero, radius: size * 2),
-//     0,
-//     -pi / 4,
-//     false,
-//     aimPaint,
-//   );
-//   canvas.drawArc(
-//     Rect.fromCircle(center: Offset.zero, radius: size * 2),
-//     0,
-//     pi / 4,
-//     false,
-//     aimPaint,
-//   );
-//   canvas.restore();
-// }
-
-//NOTE: better movement for components
-// // Example in C#
-// float speed = 5.0f; // speed in units per second
-// float distance = Vector2.Distance(pv1, pv2);
-// float duration = distance / speed;
-//
-// // Within your Update or coroutine:
-// elapsedTime += Time.deltaTime;
-// float t = Mathf.Clamp01(elapsedTime / duration);
-//
-// // Using SmoothStep for easing (acceleration then deceleration)
-// float easedT = Mathf.SmoothStep(0f, 1f, t);
-//
-// // Interpolate position using the eased value
-// Vector2 newPosition = Vector2.Lerp(pv1, pv2, easedT);
-// transform.position = new Vector3(newPosition.x, newPosition.y, transform.position.z);
-//
-// float EaseInOutQuad(float t) {
-//     return t < 0.5f ? 2 * t * t : -1 + (4 - 2 * t) * t;
-// }
-//
-// // Then use it similarly:
-// float easedT = EaseInOutQuad(t);
-// Vector2 newPosition = Vector2.Lerp(pv1, pv2, easedT);
