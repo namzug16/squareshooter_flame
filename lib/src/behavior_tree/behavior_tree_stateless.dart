@@ -20,7 +20,7 @@ mixin BehaviorTree on Component {
           final status = n(dt);
           if (status != false) return status;
         }
-        return false;
+        return true;
       };
 
   BTNode inverter(BTNode child) => (double dt) => child(dt) == null ? null : !child(dt)!;

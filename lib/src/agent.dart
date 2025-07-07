@@ -1,72 +1,97 @@
 import 'dart:math' as math;
 
 import 'package:flame/components.dart';
-import 'package:square_shooter_flame/src/shooter.dart';
 import 'package:square_shooter_flame/src/behavior_tree/behavior_tree_stateless.dart';
+import 'package:square_shooter_flame/src/shooter.dart';
 
-class Agent extends Shooter with BehaviorTree, AgentMovement {
+class Agent extends Shooter with AgentMovement, BehaviorTree {
   Agent({required super.color, required super.initialPosition});
 
-  late final bt = sequence([
-    (_) => game.started,
-    //movement
-    sequence([
-      (_) => !isDead,
-      forceSuccess(sequence([
-        hasArrivedToDesiredPosition,
-        setDesiredPositionValues,
-      ])),
-      move,
-    ]),
+  late final movementBT = sequence([
+    (_) => !isDead,
+    forceSuccess(sequence([
+      hasArrivedToDesiredPosition,
+      setDesiredPositionValues,
+    ])),
+    move,
+  ]);
+
+  late final idleBT = sequence([
     fallback([
-      //stunned
-      sequence([
-        (_) => isStunned,
-        stopAttack,
-        setStunnedColor,
-        setMovementStepLimitOnStunned,
-        tickStunTimer,
-        resetMovementStepLimit,
-        resetColor,
-      ]),
-      //target selection
-      sequence([
-        (_) => target == null,
-        stopAttack,
-        getTarget,
-      ]),
-      //target kill
-      sequence([
-        (_) => target!.isStunned,
-        stopAttack,
-        resetMovementStepLimit,
-      ]),
-      //attack
-      sequence([
-        (_) => !target!.isDead && !target!.isStunned,
-        fallback([
-          sequence([
-            (_) => !isAttacking,
-            tickAttackCooldownTimer,
-            setRandomAttackTimer,
-            attack,
-          ]),
-          sequence([
-            setMovementStepLimitOnAttack,
-            tickAttackTimer,
-            setRandomAttackCooldownTimer,
-            stopAttack,
-            resetMovementStepLimit,
-          ]),
-        ]),
-      ]),
+      (_) => target != null,
+      forceFailure(setRandomAttackCooldownTimer),
+      getTarget,
     ]),
+    tickAttackCooldownTimer,
+    transitionStateFromBT(ShooterState.shooting),
+  ]);
+
+  late final shootingBT = fallback([
+    sequence([
+      (_) => target?.state == ShooterState.stunned,
+      transitionStateFromBT(ShooterState.killing),
+    ]),
+    sequence([
+      tickAttackTimer,
+      transitionStateFromBT(ShooterState.idle),
+    ]),
+  ]);
+
+  late final stunnedBT = sequence([
+    tickStunTimer,
+    transitionStateFromBT(ShooterState.idle),
   ]);
 
   @override
   void update(double dt) {
     super.update(dt);
-    bt(dt);
+
+    if (game.started) {
+      movementBT(dt);
+
+      switch (state) {
+        case ShooterState.idle:
+          idleBT(dt);
+        case ShooterState.stunned:
+          stunnedBT(dt);
+        case ShooterState.shooting:
+          shootingBT(dt);
+        case ShooterState.killing:
+          transitionState(ShooterState.idle);
+      }
+    }
+  }
+
+  @override
+  void onExitState() {
+    switch (state) {
+      case ShooterState.idle:
+      case ShooterState.stunned:
+        resetMovementStepLimit();
+        resetColor();
+      case ShooterState.shooting:
+        resetMovementStepLimit();
+        stopAttack(0);
+      case ShooterState.killing:
+        resetMovementStepLimit();
+    }
+  }
+
+  @override
+  void onEnterBaseState() {
+    switch (state) {
+      case ShooterState.idle:
+        setRandomAttackCooldownTimer(0);
+      case ShooterState.stunned:
+        setStunnedColor();
+        setMovementStepLimitOnStunned();
+      case ShooterState.shooting:
+        setMovementStepLimitOnShooting();
+        setRandomAttackTimer(0);
+        attack(0);
+      case ShooterState.killing:
+        setMovementStepLimitOnKilling();
+    }
   }
 
   bool? getTarget(double dt) {
@@ -75,7 +100,7 @@ class Agent extends Shooter with BehaviorTree, AgentMovement {
     return true;
   }
 
-  Timer _attackTimer = Timer(0);
+  Timer _attackTimer = Timer(5);
 
   bool? setRandomAttackTimer(double dt) {
     _attackTimer = Timer(math.Random().nextDouble() * 5 + 1);
@@ -88,7 +113,7 @@ class Agent extends Shooter with BehaviorTree, AgentMovement {
     return null;
   }
 
-  Timer _attackCooldownTimer = Timer(0);
+  Timer _attackCooldownTimer = Timer(3);
 
   bool? setRandomAttackCooldownTimer(double dt) {
     _attackCooldownTimer = Timer(math.Random().nextDouble() * 5 + 1);
@@ -152,7 +177,8 @@ mixin AgentMovement on Shooter {
       });
 
       final valid = possiblePositions.where((p) {
-        final bool onScreen = p.x >= 0 && p.y >= 0 && p.x <= game.size.x && p.y <= game.size.y;
+        final bool onScreen =
+            p.x >= 0 && p.y >= 0 && p.x <= game.size.x && p.y <= game.size.y;
         if (!onScreen) return false;
 
         final Vector2 toP = p - targetPosition;

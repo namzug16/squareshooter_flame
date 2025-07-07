@@ -7,19 +7,23 @@ import 'package:square_shooter_flame/main.dart';
 import 'package:square_shooter_flame/src/bullet.dart';
 import 'package:square_shooter_flame/src/progress_component.dart';
 
-class Shooter extends PositionComponent with HasGameReference<SquareShooter>, CollisionCallbacks {
+enum ShooterState { idle, stunned, shooting, killing }
+
+class Shooter extends PositionComponent
+    with HasGameReference<SquareShooter>, CollisionCallbacks {
   static const Color stunnedColor = Color.fromRGBO(244, 102, 71, 1);
 
   final Color color;
 
   final Vector2 initialPosition;
 
-  Shooter({
-    required this.color,
-    required this.initialPosition,
-    double size = 60,
-  })  : bodyColor = color,
-        super(size: Vector2.all(size), anchor: Anchor.center, position: initialPosition);
+  Shooter(
+      {required this.color, required this.initialPosition, double size = 60})
+      : bodyColor = color,
+        super(
+            size: Vector2.all(size),
+            anchor: Anchor.center,
+            position: initialPosition);
 
   Color bodyColor;
 
@@ -27,6 +31,8 @@ class Shooter extends PositionComponent with HasGameReference<SquareShooter>, Co
   bool isActive = true;
 
   bool isDead = false;
+
+  ShooterState state = ShooterState.idle;
 
   late SpawnComponent bulletSpawner;
 
@@ -43,13 +49,51 @@ class Shooter extends PositionComponent with HasGameReference<SquareShooter>, Co
       autoStart: false,
     );
     game.add(bulletSpawner);
-    add(CircleHitbox.relative(
-      1.0,
-      parentSize: size,
-      anchor: anchor,
-      position: size * 0.5,
-    ));
+    add(CircleHitbox.relative(1.0,
+        parentSize: size, anchor: anchor, position: size * 0.5));
   }
+
+  //NOTE: State Machines {{{
+
+  bool? Function(double dt) transitionStateFromBT(ShooterState newState) {
+    return (_) {
+      transitionState(newState);
+      return true;
+    };
+  }
+
+  void transitionState(ShooterState newState) {
+    onExitState();
+    state = newState;
+    onEnterBaseState();
+  }
+
+  void onExitState() {
+    switch (state) {
+      case ShooterState.idle:
+      case ShooterState.stunned:
+        resetMovementStepLimit();
+        resetColor();
+      case ShooterState.shooting:
+        resetMovementStepLimit();
+      case ShooterState.killing:
+        resetMovementStepLimit();
+    }
+  }
+
+  void onEnterBaseState() {
+    switch (state) {
+      case ShooterState.idle:
+      case ShooterState.stunned:
+        setStunnedColor();
+        setMovementStepLimitOnStunned();
+      case ShooterState.shooting:
+        setMovementStepLimitOnShooting();
+      case ShooterState.killing:
+        setMovementStepLimitOnKilling();
+    }
+  }
+  //}}}
 
   @override
   void render(Canvas canvas) {
@@ -59,15 +103,10 @@ class Shooter extends PositionComponent with HasGameReference<SquareShooter>, Co
     canvas.translate(size.x * 0.5, size.x * 0.5);
     canvas.rotate(_rotation);
     canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        Rect.fromCircle(
-          center: Offset.zero,
-          radius: size.x / 2,
-        ),
-        const Radius.circular(10),
-      ),
-      Paint()..color = bodyColor,
-    );
+        RRect.fromRectAndRadius(
+            Rect.fromCircle(center: Offset.zero, radius: size.x / 2),
+            const Radius.circular(10)),
+        Paint()..color = bodyColor);
     canvas.restore();
   }
 
@@ -93,9 +132,7 @@ class Shooter extends PositionComponent with HasGameReference<SquareShooter>, Co
 
   @override
   void onCollisionStart(
-    Set<Vector2> intersectionPoints,
-    PositionComponent other,
-  ) {
+      Set<Vector2> intersectionPoints, PositionComponent other) {
     super.onCollisionStart(intersectionPoints, other);
 
     // if (other is LaserComponent && other.owner != this && other.activated) {
@@ -104,42 +141,34 @@ class Shooter extends PositionComponent with HasGameReference<SquareShooter>, Co
     // }
 
     if (other is Bullet && other.owner != this) {
-      isStunned = true;
+      transitionState(ShooterState.stunned);
     }
   }
 
-  bool? resetColor(double dt) {
+  void resetColor() {
     bodyColor = color;
-    return true;
   }
 
   //NOTE: Stun {{{
 
-  bool hasCollidedWithBullet = false;
-
-  bool isStunned = false;
-
   TimerComponent? _stunTimer;
 
-  bool setStunnedColor(double dt) {
+  void setStunnedColor() {
     bodyColor = stunnedColor;
-    return true;
   }
 
   bool? tickStunTimer(double dt) {
     if (_stunTimer == null) {
-      _stunTimer = TimerComponent(
-        period: 1,
-        removeOnFinish: true,
-      );
+      _stunTimer = TimerComponent(period: 1, removeOnFinish: true);
       add(_stunTimer!);
-      add(ProgressComponent(lowerBound: 0, upperBound: 0.8, period: 1, onTick: () {}));
+      add(ProgressComponent(
+          lowerBound: 0, upperBound: 0.8, period: 1, onTick: () {}));
       return null;
     }
 
     if (_stunTimer?.isRemoved ?? false) {
       _stunTimer = null;
-      isStunned = false;
+      transitionState(ShooterState.idle);
       return true;
     }
 
@@ -172,21 +201,13 @@ class Shooter extends PositionComponent with HasGameReference<SquareShooter>, Co
     canvas.save();
     canvas.translate(size.x * 0.5, size.x * 0.5);
     canvas.drawLine(
-      (dv * startAimSize).toOffset(),
-      (dv * aimSize).toOffset(),
-      aimPaint,
-    );
+        (dv * startAimSize).toOffset(), (dv * aimSize).toOffset(), aimPaint);
     canvas.restore();
     canvas.save();
     canvas.translate(size.x * 0.5, size.x * 0.5);
     canvas.rotate(signedAngle);
-    canvas.drawArc(
-      Rect.fromCircle(center: Offset.zero, radius: size.x),
-      13 * math.pi / 8,
-      3 * math.pi / 4,
-      false,
-      aimPaint,
-    );
+    canvas.drawArc(Rect.fromCircle(center: Offset.zero, radius: size.x),
+        13 * math.pi / 8, 3 * math.pi / 4, false, aimPaint);
     canvas.restore();
   }
 
@@ -201,12 +222,11 @@ class Shooter extends PositionComponent with HasGameReference<SquareShooter>, Co
     final padding = size.x * 1.5;
 
     final bullet = Bullet(
-      owner: this,
-      color: color,
-      size: size.x * 0.4,
-      initialPosition: position + (dv * padding),
-      dir: dv,
-    );
+        owner: this,
+        color: color,
+        size: size.x * 0.4,
+        initialPosition: position + (dv * padding),
+        dir: dv);
 
     return bullet;
   }
@@ -228,27 +248,26 @@ class Shooter extends PositionComponent with HasGameReference<SquareShooter>, Co
   //NOTE: Movement {{{
   double? movementStepLimit;
 
-  bool? canAttack(double dt) {
-    return (target?.distance(this) ?? 0) > size.x * 3; 
-  }
+  bool canAttack() => (target?.distance(this) ?? 0) > size.x * 3;
 
-  bool? resetMovementStepLimit(double dt) {
+  void resetMovementStepLimit() {
     movementStepLimit = null;
-    return true;
   }
 
   void _setMovementStepLimit(double step) {
     movementStepLimit = step;
   }
 
-  bool? setMovementStepLimitOnAttack(double dt) {
+  void setMovementStepLimitOnShooting() {
     _setMovementStepLimit(0.03);
-    return true;
   }
 
-  bool? setMovementStepLimitOnStunned(double dt) {
+  void setMovementStepLimitOnKilling() {
+    _setMovementStepLimit(0);
+  }
+
+  void setMovementStepLimitOnStunned() {
     _setMovementStepLimit(0.01);
-    return true;
   }
 
   final speed = 130;
