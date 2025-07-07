@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flame/collisions.dart';
 import 'package:flame/components.dart';
 import 'package:flutter/material.dart';
@@ -5,56 +7,96 @@ import 'package:square_shooter_flame/main.dart';
 import 'package:square_shooter_flame/src/helpers.dart';
 import 'package:square_shooter_flame/src/shooter.dart';
 
-class LaserComponent extends PositionComponent with HasGameRef<SquareShooter>, CollisionCallbacks {
+const _chargeTime = 1.0;
+
+class Laser extends PositionComponent with HasGameRef<SquareShooter>, CollisionCallbacks {
   final Vector2 initialPosition;
   final Vector2 directionVector;
   final Color color;
   final Shooter owner;
   final double strokeWidth;
 
-  LaserComponent({
+  Laser({
     required this.initialPosition,
     required this.directionVector,
     required this.color,
     required this.owner,
     required this.strokeWidth,
-  });
+  }) : super(
+          // position: Vector2(initialPosition.x, initialPosition.y - strokeWidth * 0.5 ),
+          position: initialPosition,
+          size: Vector2(strokeWidth, 5000),
+          angle: -math.atan2(directionVector.x, directionVector.y),
+        );
 
   bool activated = false;
+  bool detached = false;
+
+  Timer _dt = Timer(_chargeTime);
 
   void detach() {
+    detached = true;
     activated = false;
-    removeFromParent();
+    _dt = Timer(_t.progress * 0.5);
   }
 
-  late final _t = Timer(
-    0.5,
-    onTick: () {
-      activated = true;
+  void _tickDetachedTimer(dt) {
+    if (_dt.finished) {
+      removeFromParent();
+      return;
     }
-  );
+    _dt.update(dt);
+  }
 
-  @override
-  void update(double dt) {
-    super.update(dt);
+  late final _t = Timer(_chargeTime);
+
+  void _tickActivationTimer(dt) {
+    if (_t.finished) {
+      activated = true;
+      return;
+    }
     _t.update(dt);
   }
 
   @override
+  void update(double dt) {
+    super.update(dt);
+    if (detached) {
+      _tickDetachedTimer(dt);
+    } else {
+      _tickActivationTimer(dt);
+    }
+  }
+
+  bool targetIsInAim() {
+    return activeCollisions.any((e) => e is Shooter && e != owner);
+  }
+
+  @override
+  Future<void> onLoad() async {
+    await super.onLoad();
+    debugMode = true;
+    add(
+      RectangleHitbox.relative(
+        Vector2(1, 1),
+        parentSize: size,
+      ),
+    );
+  }
+
+  @override
   void render(Canvas canvas) {
-    super.render(canvas);
     canvas.save();
-    final start = initialPosition;
-    final end = initialPosition + directionVector * (game.size.x * 2);
+    canvas.rotate(math.pi * 0.5);
     final path = Path()
-      ..moveTo(start.x, start.y)
-      ..lineTo(end.x, end.y);
+      ..moveTo(0, 0)
+      ..lineTo((game.size.x * 2), 0);
     canvas.drawPath(
       path,
       Paint()
-        ..color = color
+        ..color = detached ? color.withOpacity(0.3) : color
         ..style = PaintingStyle.stroke
-        ..strokeWidth = inverseLerp(_t.progress, 0, strokeWidth)
+        ..strokeWidth = detached ? inverseLerp(_dt.progress, strokeWidth, 0) : inverseLerp(_t.progress, 0, strokeWidth)
         ..strokeCap = StrokeCap.round
         ..strokeJoin = StrokeJoin.round,
     );

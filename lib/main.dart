@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:square_shooter_flame/src/agent.dart';
 import 'package:square_shooter_flame/src/count_down_timer.dart';
+import 'package:square_shooter_flame/src/player.dart';
 import 'package:square_shooter_flame/src/shooter.dart';
 
 const gameDebugMode = false;
@@ -29,6 +30,7 @@ class SquareShooterGame extends StatelessWidget {
             Positioned.fill(
               child: GameWidget(
                 game: game,
+                autofocus: true,
               ),
             ),
             Positioned(
@@ -40,6 +42,16 @@ class SquareShooterGame extends StatelessWidget {
                   print("GAME PAUSED");
                 },
                 child: const Text("STOP GAME"),
+              ),
+            ),
+            Positioned(
+              top: 20,
+              left: 0,
+              child: ElevatedButton(
+                onPressed: () {
+                  game.resumeEngine();
+                },
+                child: const Text("RESUME GAME"),
               ),
             ),
           ],
@@ -63,7 +75,7 @@ class SquareShooterGame extends StatelessWidget {
 //   ];
 // }
 
-class SquareShooter extends FlameGame with KeyboardEvents, HasCollisionDetection {
+class SquareShooter extends FlameGame with HasCollisionDetection, HasKeyboardHandlerComponents {
   SquareShooter();
 
   bool started = false;
@@ -73,16 +85,20 @@ class SquareShooter extends FlameGame with KeyboardEvents, HasCollisionDetection
   @override
   Future<void>? onLoad() async {
     await super.onLoad();
-    debugMode = false;
     final ag1 = Agent(color: Colors.yellowAccent, initialPosition: Vector2(100, 100));
-    final ag2 = Agent(color: Colors.green, initialPosition: Vector2(500, 500));
+    // final ag2 = Agent(color: Colors.green, initialPosition: Vector2(500, 500));
+    final player = Player(color: Colors.greenAccent, initialPosition: Vector2(500, 500));
     // final ag3 = Agent(color: Colors.greenAccent, initialPosition: Vector2(500, 500));
 
     add(ag1);
-    add(ag2);
+    add(player);
+    // add(ag2);
     // add(ag3);
     // shooters.addAll([ag1, ag2, ag3]);
-    shooters.addAll([ag1, ag2]);
+    // shooters.addAll([ag1, ag2]);
+    shooters.addAll([ag1, player]);
+
+    player.target = ag1;
 
     add(
       CountDownTimer(
@@ -93,17 +109,17 @@ class SquareShooter extends FlameGame with KeyboardEvents, HasCollisionDetection
     );
   }
 
-  @override
-  KeyEventResult onKeyEvent(
-    KeyEvent event,
-    Set<LogicalKeyboardKey> keysPressed,
-  ) {
-    // if (player != null) {
-    //   player!.keyboardInput(
-    //     event,
-    //     keysPressed,
-    //   );
-    // }
-    return KeyEventResult.ignored;
-  }
+  // @override
+  // KeyEventResult onKeyEvent(
+  //   KeyEvent event,
+  //   Set<LogicalKeyboardKey> keysPressed,
+  // ) {
+  //   // if (player != null) {
+  //   //   player!.keyboardInput(
+  //   //     event,
+  //   //     keysPressed,
+  //   //   );
+  //   // }
+  //   return KeyEventResult.ignored;
+  // }
 }

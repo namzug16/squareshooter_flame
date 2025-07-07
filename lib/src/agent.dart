@@ -19,8 +19,8 @@ class Agent extends Shooter with AgentMovement, BehaviorTree {
   late final idleBT = sequence([
     fallback([
       (_) => target != null,
-      forceFailure(setRandomAttackCooldownTimer),
       getTarget,
+      setRandomAttackCooldownTimer,
     ]),
     tickAttackCooldownTimer,
     transitionStateFromBT(ShooterState.shooting),
@@ -37,6 +37,17 @@ class Agent extends Shooter with AgentMovement, BehaviorTree {
     ]),
   ]);
 
+  late final killingBT = fallback([
+    // sequence([
+    //   inverter((_) => attachedLaser?.targetIsInAim() ?? true),
+    //   transitionStateFromBT(ShooterState.idle),
+    // ]),
+    sequence([
+      (_) => target?.isDead == true,
+      transitionStateFromBT(ShooterState.idle),
+    ]),
+  ]);
+
   late final stunnedBT = sequence([
     tickStunTimer,
     transitionStateFromBT(ShooterState.idle),
@@ -47,17 +58,17 @@ class Agent extends Shooter with AgentMovement, BehaviorTree {
     super.update(dt);
 
     if (game.started) {
-      movementBT(dt);
+      // movementBT(dt);
 
       switch (state) {
         case ShooterState.idle:
-          idleBT(dt);
+          // idleBT(dt);
         case ShooterState.stunned:
           stunnedBT(dt);
         case ShooterState.shooting:
-          shootingBT(dt);
+          // shootingBT(dt);
         case ShooterState.killing:
-          transitionState(ShooterState.idle);
+          // killingBT(dt);
       }
     }
   }
@@ -66,6 +77,7 @@ class Agent extends Shooter with AgentMovement, BehaviorTree {
   void onExitState() {
     switch (state) {
       case ShooterState.idle:
+        break;
       case ShooterState.stunned:
         resetMovementStepLimit();
         resetColor();
@@ -74,6 +86,7 @@ class Agent extends Shooter with AgentMovement, BehaviorTree {
         stopAttack(0);
       case ShooterState.killing:
         resetMovementStepLimit();
+        cancelKilling();
     }
   }
 
@@ -91,12 +104,17 @@ class Agent extends Shooter with AgentMovement, BehaviorTree {
         attack(0);
       case ShooterState.killing:
         setMovementStepLimitOnKilling();
+        tryKillTarget();
     }
   }
 
   bool? getTarget(double dt) {
-    final targets = game.shooters.where((element) => element != this).toList();
-    target = targets.first;
+    final targets = game.shooters.where((element) => element != this && !element.isDead).toList();
+    if (targets.isNotEmpty) {
+      target = targets.first;
+    } else {
+      target = null;
+    }
     return true;
   }
 
@@ -148,6 +166,7 @@ mixin AgentMovement on Shooter {
   }
 
   bool? move(double dt) {
+    if (movementStepLimit == 0) return true;
     _elapsed += dt * (movementStepLimit ?? 1);
     double t = math.min(1.0, _elapsed / _duration);
     t = _ease(t);
@@ -177,8 +196,7 @@ mixin AgentMovement on Shooter {
       });
 
       final valid = possiblePositions.where((p) {
-        final bool onScreen =
-            p.x >= 0 && p.y >= 0 && p.x <= game.size.x && p.y <= game.size.y;
+        final bool onScreen = p.x >= 0 && p.y >= 0 && p.x <= game.size.x && p.y <= game.size.y;
         if (!onScreen) return false;
 
         final Vector2 toP = p - targetPosition;

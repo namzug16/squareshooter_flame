@@ -5,25 +5,22 @@ import 'package:flame/collisions.dart';
 import 'package:flutter/material.dart';
 import 'package:square_shooter_flame/main.dart';
 import 'package:square_shooter_flame/src/bullet.dart';
+import 'package:square_shooter_flame/src/effects.dart';
+import 'package:square_shooter_flame/src/laser.dart';
 import 'package:square_shooter_flame/src/progress_component.dart';
 
 enum ShooterState { idle, stunned, shooting, killing }
 
-class Shooter extends PositionComponent
-    with HasGameReference<SquareShooter>, CollisionCallbacks {
+class Shooter extends PositionComponent with HasGameReference<SquareShooter>, CollisionCallbacks {
   static const Color stunnedColor = Color.fromRGBO(244, 102, 71, 1);
 
   final Color color;
 
   final Vector2 initialPosition;
 
-  Shooter(
-      {required this.color, required this.initialPosition, double size = 60})
+  Shooter({required this.color, required this.initialPosition, double size = 60})
       : bodyColor = color,
-        super(
-            size: Vector2.all(size),
-            anchor: Anchor.center,
-            position: initialPosition);
+        super(size: Vector2.all(size), anchor: Anchor.center, position: initialPosition);
 
   Color bodyColor;
 
@@ -49,8 +46,7 @@ class Shooter extends PositionComponent
       autoStart: false,
     );
     game.add(bulletSpawner);
-    add(CircleHitbox.relative(1.0,
-        parentSize: size, anchor: anchor, position: size * 0.5));
+    add(CircleHitbox.relative(1.0, parentSize: size, anchor: anchor, position: size * 0.5));
   }
 
   //NOTE: State Machines {{{
@@ -63,6 +59,7 @@ class Shooter extends PositionComponent
   }
 
   void transitionState(ShooterState newState) {
+    if (newState == state) return;
     onExitState();
     state = newState;
     onEnterBaseState();
@@ -102,11 +99,7 @@ class Shooter extends PositionComponent
     canvas.save();
     canvas.translate(size.x * 0.5, size.x * 0.5);
     canvas.rotate(_rotation);
-    canvas.drawRRect(
-        RRect.fromRectAndRadius(
-            Rect.fromCircle(center: Offset.zero, radius: size.x / 2),
-            const Radius.circular(10)),
-        Paint()..color = bodyColor);
+    canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromCircle(center: Offset.zero, radius: size.x / 2), const Radius.circular(10)), Paint()..color = bodyColor);
     canvas.restore();
   }
 
@@ -131,14 +124,41 @@ class Shooter extends PositionComponent
   }
 
   @override
-  void onCollisionStart(
-      Set<Vector2> intersectionPoints, PositionComponent other) {
+  void onCollisionStart(Set<Vector2> intersectionPoints, PositionComponent other) {
     super.onCollisionStart(intersectionPoints, other);
 
-    // if (other is LaserComponent && other.owner != this && other.activated) {
-    //   isDead = true;
-    //   return;
-    // }
+    if (other is Laser && other.owner != this && other.activated) {
+      isDead = true;
+      removeFromParent();
+      game.add(
+        ShockWave(
+          position: position,
+          color: color,
+          maxRadius: size.x * 6,
+        ),
+      );
+      game.add(
+        Explosion(
+          position: position,
+          color: color,
+          amountParticles: 15,
+          particleSize: size.x * 0.1,
+          maxRadius: size.x * 6,
+          minRadius: size.x,
+        ),
+      );
+      game.add(
+        Explosion(
+          position: position,
+          color: color,
+          amountParticles: 30,
+          particleSize: size.x * 0.3,
+          maxRadius: size.x * 6,
+          minRadius: size.x,
+        ),
+      );
+      return;
+    }
 
     if (other is Bullet && other.owner != this) {
       transitionState(ShooterState.stunned);
@@ -161,8 +181,7 @@ class Shooter extends PositionComponent
     if (_stunTimer == null) {
       _stunTimer = TimerComponent(period: 1, removeOnFinish: true);
       add(_stunTimer!);
-      add(ProgressComponent(
-          lowerBound: 0, upperBound: 0.8, period: 1, onTick: () {}));
+      add(ProgressComponent(lowerBound: 0, upperBound: 0.8, period: 1, onTick: () {}));
       return null;
     }
 
@@ -195,19 +214,17 @@ class Shooter extends PositionComponent
     final aimPaint = Paint()
       ..color = color
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 5
+      ..strokeWidth = size.x * 0.1
       ..strokeCap = StrokeCap.round;
 
     canvas.save();
     canvas.translate(size.x * 0.5, size.x * 0.5);
-    canvas.drawLine(
-        (dv * startAimSize).toOffset(), (dv * aimSize).toOffset(), aimPaint);
+    canvas.drawLine((dv * startAimSize).toOffset(), (dv * aimSize).toOffset(), aimPaint);
     canvas.restore();
     canvas.save();
     canvas.translate(size.x * 0.5, size.x * 0.5);
     canvas.rotate(signedAngle);
-    canvas.drawArc(Rect.fromCircle(center: Offset.zero, radius: size.x),
-        13 * math.pi / 8, 3 * math.pi / 4, false, aimPaint);
+    canvas.drawArc(Rect.fromCircle(center: Offset.zero, radius: size.x), 13 * math.pi / 8, 3 * math.pi / 4, false, aimPaint);
     canvas.restore();
   }
 
@@ -221,12 +238,7 @@ class Shooter extends PositionComponent
 
     final padding = size.x * 1.5;
 
-    final bullet = Bullet(
-        owner: this,
-        color: color,
-        size: size.x * 0.4,
-        initialPosition: position + (dv * padding),
-        dir: dv);
+    final bullet = Bullet(owner: this, color: color, size: size.x * 0.4, initialPosition: position + (dv * padding), dir: dv);
 
     return bullet;
   }
@@ -243,6 +255,28 @@ class Shooter extends PositionComponent
     return true;
   }
 
+  //}}}
+
+  //NOTE: Kill {{{
+
+  Laser? attachedLaser;
+
+  void tryKillTarget() {
+    final laser = Laser(
+      initialPosition: center,
+      directionVector: getDirectionVectorToTarget(),
+      color: color,
+      owner: this,
+      strokeWidth: size.x * 0.1,
+    );
+    game.add(laser);
+    attachedLaser = laser;
+  }
+
+  void cancelKilling() {
+    attachedLaser?.detach();
+    attachedLaser = null;
+  }
   //}}}
 
   //NOTE: Movement {{{
@@ -267,7 +301,7 @@ class Shooter extends PositionComponent
   }
 
   void setMovementStepLimitOnStunned() {
-    _setMovementStepLimit(0.01);
+    _setMovementStepLimit(0.1);
   }
 
   final speed = 130;
