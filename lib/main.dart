@@ -1,180 +1,285 @@
-import 'dart:math';
+import 'dart:math' as math;
 
-import 'package:flame/components.dart';
 import 'package:flame/game.dart';
 import 'package:flame/input.dart';
-import 'package:flutter/cupertino.dart';
+import 'package:flame/timer.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:square_shooter_flame/src/area.dart';
-import 'package:square_shooter_flame/src/bullet.dart';
+import 'package:square_shooter_flame/src/agent.dart';
 import 'package:square_shooter_flame/src/count_down_timer.dart';
-import 'package:square_shooter_flame/src/enemy.dart';
-import 'package:square_shooter_flame/src/helpers.dart';
 import 'package:square_shooter_flame/src/player.dart';
-import 'package:square_shooter_flame/src/square_component.dart';
-import 'package:square_shooter_flame/src/ui.dart';
-import 'package:square_shooter_flame/src/zombie.dart';
+import 'package:square_shooter_flame/src/shooter.dart';
+import 'package:square_shooter_flame/src/zombie_agent.dart';
+
+const gameDebugMode = false;
 
 void main() {
-  final game = SquareShooter();
-  runApp(
-    GameWidget(
-      game: game,
-    ),
-  );
+  runApp(const SquareShooter());
 }
 
-class SquareShooter extends FlameGame
-    with KeyboardEvents, HasCollidables, HasTappables {
+class SquareShooter extends StatefulWidget {
+  const SquareShooter({Key? key}) : super(key: key);
+
+  @override
+  State<SquareShooter> createState() => _SquareShooterState();
+}
+
+class _SquareShooterState extends State<SquareShooter> {
+  late final SquareShooterGame game;
+
+  void onGameFinished(GameType type) => setState(() {
+        switch (type) {
+          case GameType.player:
+            _isMenuVisible = true;
+          case GameType.agentsSimple:
+          case GameType.agentsChaos:
+          case GameType.test:
+        }
+      });
+
+  void onGameStarted(GameType type) => setState(() {
+        switch (type) {
+          case GameType.player:
+            _isMenuVisible = false;
+          case GameType.agentsChaos:
+          case GameType.agentsSimple:
+          case GameType.test:
+        }
+      });
+
+  bool _isMenuVisible = true;
+
+  @override
+  void initState() {
+    super.initState();
+    game = SquareShooterGame(
+      onGameStarted: onGameStarted,
+      onGameFinished: onGameFinished,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'Square Shooter',
+      debugShowCheckedModeBanner: false,
+      home: Scaffold(
+        body: Stack(
+          fit: StackFit.expand,
+          children: [
+            Positioned.fill(
+              child: GameWidget(
+                game: game,
+                autofocus: true,
+                addRepaintBoundary: true,
+              ),
+            ),
+            if (_isMenuVisible)
+              Positioned(
+                top: 0,
+                left: 0,
+                child: Padding(
+                  padding: const EdgeInsets.all(8),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    spacing: 8,
+                    children: [
+                      const Text("SQUARE SHOOTER", style: TextStyle(fontSize: 60, color: Colors.white)),
+                      const Text("Controls", style: TextStyle(fontSize: 20, color: Colors.white)),
+                      const Text("Movement: WASD", style: TextStyle(fontSize: 16, color: Colors.white)),
+                      const Text("Shoot: K", style: TextStyle(fontSize: 16, color: Colors.white)),
+                      const Text("Kill: L", style: TextStyle(fontSize: 16, color: Colors.white)),
+                      ElevatedButton(
+                        onPressed: () {
+                          setState(() {
+                            game.startPlayerGame();
+                          });
+                        },
+                        child: const Text("PLAY"),
+                      ),
+                      // TextButton(
+                      //   onPressed: () {
+                      //     game.pauseEngine();
+                      //   },
+                      //   child: const Text("PAUSE GAME ENGINE"),
+                      // ),
+                      // TextButton(
+                      //   onPressed: () {
+                      //     game.resumeEngine();
+                      //   },
+                      //   child: const Text("RESUME GAME ENGINE"),
+                      // ),
+                        ElevatedButton(
+                          onPressed: () {
+                            setState(() {
+                              game.startAgentsSimpleGame();
+                            });
+                          },
+                          child: const Text("START AGENTS GAME (Simple)"),
+                        ),
+                        ElevatedButton(
+                          onPressed: () {
+                            setState(() {
+                              game.startAgentsChaosGame();
+                            });
+                          },
+                          child: const Text("START AGENTS GAME (Chaos)"),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+enum GameType {
+  agentsSimple,
+  agentsChaos,
+  player,
+  test,
+}
+
+class SquareShooterGame extends FlameGame with HasCollisionDetection, HasKeyboardHandlerComponents {
+  SquareShooterGame({
+    required this.onGameStarted,
+    required this.onGameFinished,
+  });
+
+  final void Function(GameType type) onGameStarted;
+  final void Function(GameType type) onGameFinished;
+
+  bool get started => _started;
+  bool _started = false;
+
+  bool _finished = false;
+
+  GameType _currentGameType = GameType.agentsSimple;
+
+  List<Shooter> get shooters => _shooters;
+  final List<Shooter> _shooters = [];
 
   @override
   Future<void>? onLoad() async {
     await super.onLoad();
-    setUpAiShowCase();
-    // setUpGame();
+    startAgentsSimpleGame();
   }
 
-  @override
-  KeyEventResult onKeyEvent(
-    RawKeyEvent event,
-    Set<LogicalKeyboardKey> keysPressed,
-  ) {
-    final player = children.whereType<Player>();
-    if (player.isNotEmpty) {
-      return (player.first).keyboardInput(event, keysPressed);
-    } else {
-      return KeyEventResult.ignored;
+  void startAgentsSimpleGame() => _loadGame(GameType.agentsSimple);
+
+  void startAgentsChaosGame() => _loadGame(GameType.agentsChaos);
+
+  void startPlayerGame() => _loadGame(GameType.player);
+
+  void _loadGame(GameType type) {
+    _started = false;
+    _finished = false;
+    _currentGameType = type;
+    _shooters.clear();
+
+    removeAll(children);
+
+    switch (type) {
+      case GameType.agentsSimple:
+        _shooters.addAll([
+          Agent(color: cs[0], initialPosition: Vector2(size.x * 0.5, 100)),
+          Agent(color: cs[1], initialPosition: Vector2(size.x * 0.5, size.y * 0.5)),
+          Agent(color: cs[2], initialPosition: Vector2(size.x * 0.5, size.y - 100)),
+        ]);
+      case GameType.agentsChaos:
+        for (final c in cs) {
+          _shooters.add(
+            Agent(
+              color: c,
+              initialPosition: Vector2(
+                math.Random().nextDouble() * size.x,
+                math.Random().nextDouble() * size.y,
+              ),
+              size: math.min(60, size.x * 0.04),
+            ),
+          );
+        }
+      case GameType.player:
+        final ag = Agent(color: Colors.yellowAccent, initialPosition: Vector2(size.x * 0.5, 100));
+        final player = Player(color: Colors.greenAccent, initialPosition: Vector2(size.x * 0.5, size.y - 100));
+        player.target = ag;
+        _shooters.addAll([ag, player]);
+      case GameType.test:
+        final zag = ZombieAgent(color: Colors.yellowAccent, initialPosition: Vector2(size.x * 0.5, 100));
+        final player = Player(color: Colors.greenAccent, initialPosition: Vector2(size.x * 0.5, size.y - 100));
+        player.target = zag;
+        _shooters.addAll([zag, player]);
     }
+
+    for (final c in _shooters) {
+      add(c);
+    }
+
+    add(
+      CountDownTimer(
+        position: size * 0.5,
+        callback: () {
+          _started = true;
+        },
+      ),
+    );
+
+    onGameStarted(type);
+  }
+
+  void _checkGameStatus() {
+    if (!_finished && _shooters.where((e) => !e.isDead).length == 1) {
+      _finished = true;
+      onGameFinished(_currentGameType);
+    }
+  }
+
+  final _shakeTimer = Timer(0.5, autoStart: false);
+  int _shakeStrength = 20;
+
+  void lightShake() {
+    _shakeStrength = 5;
+    _shakeTimer.start();
+  }
+
+  void strongShake() {
+    _shakeStrength = 20;
+    _shakeTimer.start();
   }
 
   @override
   void update(double dt) {
     super.update(dt);
-    if (framesShake > 0) {
-      framesShake--;
-      const double disShake = 4.0;
-      translate = Offset(
-        inverseLerp(Random().nextDouble(), -disShake, disShake),
-        inverseLerp(Random().nextDouble(), -disShake, disShake),
-      );
-    } else {
-      if (translate != Offset.zero) {
-        translate = Offset.zero;
-      }
-    }
+    _shakeTimer.update(dt);
+    _checkGameStatus();
   }
 
   @override
   void render(Canvas canvas) {
-    canvas.save();
-    canvas.translate(translate.dx, translate.dy);
-    super.render(canvas);
-    canvas.restore();
-  }
-
-  int framesShake = 0;
-  Offset translate = Offset.zero;
-
-  void shake() {
-    framesShake = 30;
-  }
-
-  void longShake() {
-    framesShake = 70;
-  }
-
-  void setUpZombieGame(){
-
-    children.clear();
-
-    final bulletPool = BulletPool();
-    add(bulletPool);
-
-    final zombie = Zombie();
-    final player = Player();
-
-    add(zombie);
-    add(player);
-
-    const padding = 100.0;
-    final pos1 = Vector2(size.x / 2, padding);
-    final pos2 = Vector2(size.x / 2, size.y - padding);
-    player.init(zombie, pos1, bulletPool);
-    zombie.init(player, pos2, bulletPool);
-
-    startGame(true);
-  }
-
-  void setUpAiShowCase() {
-    children.clear();
-
-    add(UI());
-    final bulletPool = BulletPool();
-    add(bulletPool);
-
-    final enemyA = Enemy('A', const Color.fromRGBO(238, 217, 77, 1.0));
-    final enemyB = Enemy('B', const Color.fromRGBO(141, 80, 246, 1.0));
-
-    add(enemyA);
-    add(enemyB);
-
-    const padding = 100.0;
-    final pos1 = Vector2(size.x / 2, padding);
-    final pos2 = Vector2(size.x / 2, size.y - padding);
-    enemyA.init(enemyB, pos1, bulletPool);
-    enemyB.init(enemyA, pos2, bulletPool);
-
-    startGame(true);
-    _gameStarted = false;
-  }
-
-  bool _gameStarted = false;
-
-  void setUpGame() {
-    if(!_gameStarted){
-      children.clear();
-
-      final bulletPool = BulletPool();
-      add(bulletPool);
-      final player = Player();
-      final enemy = Enemy('ENEMY', const Color.fromRGBO(83, 125, 230, 1));
-
-      add(enemy);
-      add(player);
-
-      const padding = 100.0;
-      final pos1 = Vector2(size.x / 2, padding);
-      final pos2 = Vector2(size.x / 2, size.y - padding);
-      player.init(enemy, pos2, bulletPool);
-      enemy.init(player, pos1, bulletPool);
-
-      _gameStarted = true;
-      startGame(false);
+    if (_shakeTimer.isRunning()) {
+      canvas.translate(math.Random().nextDouble() * _shakeStrength, math.Random().nextDouble() * _shakeStrength);
     }
-  }
-
-  void startGame(bool isAi) {
-    add(
-      CountDownTimer(() {
-        children.whereType<SquareComponent>().forEach(
-          (element) {
-            element.activate();
-          },
-        );
-      }, Vector2(size.x / 2, size.y / 2), !isAi),
-    );
-  }
-
-  void endGame() {
-    add(
-      TimerComponent(
-        period: 3,
-        onTick: () {
-          setUpAiShowCase();
-        },
-        removeOnFinish: true,
-      ),
-    );
+    super.render(canvas);
   }
 }
+
+final cs = [
+  Colors.pinkAccent,
+  Colors.purpleAccent,
+  Colors.deepPurpleAccent,
+  Colors.indigoAccent,
+  Colors.blueAccent,
+  Colors.lightBlueAccent,
+  Colors.cyanAccent,
+  Colors.tealAccent,
+  Colors.greenAccent,
+  Colors.lightGreenAccent,
+  Colors.limeAccent,
+  Colors.yellowAccent,
+  Colors.amberAccent,
+  Colors.orangeAccent,
+  Colors.deepOrangeAccent,
+];

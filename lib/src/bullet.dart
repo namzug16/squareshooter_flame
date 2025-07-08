@@ -1,133 +1,90 @@
-import 'dart:math';
+import 'dart:math' as math;
+
+import 'package:flame/collisions.dart';
 import 'package:flame/components.dart';
-import 'package:flame/geometry.dart';
 import 'package:flutter/material.dart';
 import 'package:square_shooter_flame/main.dart';
 import 'package:square_shooter_flame/src/effects.dart';
-import 'package:square_shooter_flame/src/square_component.dart';
+import 'package:square_shooter_flame/src/shooter.dart';
 
+const _bulletSpeed = 1300.0;
 
-class BulletPool extends Component with HasGameRef<SquareShooter> {
-  final List<Bullet> bullets = [];
+class Bullet extends PositionComponent with HasGameReference<SquareShooterGame>, CollisionCallbacks {
+  Bullet({
+    required this.color,
+    required this.owner,
+    required this.dir,
+    required Vector2 initialPosition,
+    required double size,
+  }) : super(size: Vector2(size, 5), anchor: Anchor.center, position: initialPosition, angle: math.atan2(dir.y, dir.x));
+
+  final Shooter owner;
+
+  final Color color;
+
+  final Vector2 dir;
 
   @override
-  Future<void>? onLoad() async {
+  Future<void> onLoad() async {
     await super.onLoad();
-    for (var i = 0; i < 20; i++) {
-      final bullet = Bullet();
-      children.add(bullet);
-      bullets.add(bullet);
-    }
-  }
-
-  void shoot(Color color, Vector2 position, double angle, String owner) {
-    bullets
-        .firstWhere((element) => !element.isActive)
-        .shoot(color, position, angle, owner);
-  }
-
-  void explode(Vector2 position, Color color) {
-    const int amountParticles = 10;
-    gameRef.add(
-      Explosion(
-          position: position,
-          color: color,
-          amountParticles: amountParticles,
-          maxRadius: 150.0,
-          minRadius: 50.0,
-          particleSize: 10),
-    );
-    gameRef.add(
-      ShockWave(
-        position: position,
-        color: color,
-        maxRadius: 550,
-      ),
-    );
-  }
-}
-
-class Bullet extends PositionComponent
-    with HasGameRef<SquareShooter>, HasHitboxes, Collidable {
-  Color _color = Colors.white;
-  bool isActive = false;
-  String owner = '';
-
-  Bullet() : super(size: Vector2(40, 8), anchor: Anchor.center);
-
-  static const double vel = 30;
-
-  @override
-  void render(Canvas canvas) {
-    if(isActive) {
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(size.toRect(), const Radius.circular(5)),
-        Paint()..color = _color,
-      );
-      // renderHitboxes(canvas);
-    }
+    debugMode = gameDebugMode;
+    add(RectangleHitbox.relative(Vector2(1, 1), parentSize: size));
   }
 
   @override
   void update(double dt) {
-    if (isActive) {
-      super.update(dt);
-      position += Vector2(vel * sin(_angle), vel * -cos(_angle));
-      checkState();
+    super.update(dt);
+    position += (dir * _bulletSpeed * dt);
+    if (position.y > game.size.y || position.y < 0 || position.x > game.size.x || position.x < 0) {
+      removeFromParent();
     }
   }
 
   @override
-  Future<void>? onLoad() async {
-    await super.onLoad();
-    addHitbox(HitboxRectangle(relation: Vector2.all(1)));
-    collidableType = CollidableType.inactive;
-  }
-
-  void activate(String o) {
-    isActive = true;
-    owner = o;
-    collidableType = CollidableType.active;
-  }
-
-  void deActivate(bool shouldExplode) {
-    isActive = false;
-    collidableType = CollidableType.inactive;
-    owner = '';
-    if (shouldExplode) {
-      (parent! as BulletPool).explode(position.clone(), _color);
-    }
-  }
-
-  double _angle = 0;
-
-  void shoot(Color color, Vector2 initialPos, double a, String owner) {
-    _color = color;
-    position = initialPos;
-    _angle = a;
-    angle = a - pi / 2;
-    activate(owner);
-  }
-
-  void checkState() {
-    if (position.x < 0 ||
-        position.x > gameRef.size.x ||
-        position.y < 0 ||
-        position.y > gameRef.size.y) {
-      deActivate(false);
-    }
+  void render(Canvas canvas) {
+    super.render(canvas);
+    canvas.save();
+    final path = Path()
+      ..moveTo(0, size.y * 0.5)
+      ..lineTo(size.x, size.y * 0.5);
+    canvas.drawPath(
+      path,
+      Paint()
+        ..color = color
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = size.y
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round,
+    );
+    canvas.restore();
   }
 
   @override
-  void onCollision(Set<Vector2> intersectionPoints, Collidable other) {
-    if (isActive) {
-      if (other is SquareComponent && other.name != owner) {
-        gameRef.shake();
-        deActivate(true);
-      } else if (other is Bullet && other.owner != owner) {
-        gameRef.shake();
-        deActivate(true);
-      }
+  void onCollisionStart(
+    Set<Vector2> intersectionPoints,
+    PositionComponent other,
+  ) {
+    super.onCollisionStart(intersectionPoints, other);
+    if ((other is Bullet && other.owner != owner) || (other is Shooter && other != owner)) {
+      game.add(
+        ShockWave(
+          position: position,
+          color: color,
+          maxRadius: size.x * 4,
+        ),
+      );
+      game.add(
+        Explosion(
+          position: position,
+          color: color,
+          amountParticles: 15,
+          particleSize: size.x * 0.3,
+          maxRadius: size.x * 4,
+          minRadius: size.x,
+        ),
+      );
+      removeFromParent();
+      game.lightShake();
     }
   }
 }

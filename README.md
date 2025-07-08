@@ -11,13 +11,13 @@
 	Ready to play❔❔
 </h4>
 
-## About
-[Square Shooter - Flame](https://github.com/namzug16/squareshooter_flame) is the
-implementation of the original [Square Shooter](https://github.com/namzug16/square-shooter) 
-using [Flame](https://github.com/flame-engine/flame) 🔥 game engine. 
-
 ## ✔ Try it out!!
 [Square Shooter - Flame](https://namzug16.github.io/squareshooter_flame/#/) play the game, or just stare at the AI battling 🔫🔫
 
-## 📝 Status
-Still finding bugs 🔍 and improving the game 🚧
+## About
+[Square Shooter - Flame](https://github.com/namzug16/squareshooter_flame) is the
+re-implementation of the original [Square Shooter](https://github.com/namzug16/square-shooter) 
+using [Flame](https://github.com/flame-engine/flame) 🔥 game engine.
+
+The enemy(agent) AI uses a mix of a Finite State Machine and [Stateless Behavior Trees](https://arxiv.org/abs/2011.03835)
+

@@ -1,109 +1,126 @@
 import 'package:flame/components.dart';
-import 'package:flame/game.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:square_shooter_flame/src/square_component.dart';
+import 'package:square_shooter_flame/src/shooter.dart';
 
-class Player extends SquareComponent {
-  Player()
-      : super(
-            uniqueColor: const Color.fromRGBO(83, 230, 168, 1), name: 'PLAYER');
-
-  KeyEventResult keyboardInput(
-    RawKeyEvent event,
-    Set<LogicalKeyboardKey> keysPressed,
-  ) {
-    if (ls == LS.alive) {
-      if (keysPressed.isEmpty) {
-        dir = Vector2.zero();
-        setState(AS.none, as);
-      }
-      if (keysPressed.isNotEmpty) {
-        final keyLabels = keysPressed.map((e) => e.keyLabel).toList();
-        final attackKeys = keyLabels
-            .where((element) => element == "K" || element == "L")
-            .toList();
-        final movementKeys = keyLabels
-          ..removeWhere((element) => element == "K" || element == "L");
-
-        if (as != AS.laser) {
-          if (movementKeys.contains("A")) dir = Vector2(-1, dir.y);
-          if (!movementKeys.contains("A") && dir.x == -1) {
-            dir = Vector2(0, dir.y);
-          }
-          if (movementKeys.contains("W")) dir = Vector2(dir.x, -1);
-          if (!movementKeys.contains("W") && dir.y == -1) {
-            dir = Vector2(dir.x, 0);
-          }
-          if (movementKeys.contains("D")) dir = Vector2(1, dir.y);
-          if (!movementKeys.contains("D") && dir.x == 1) {
-            dir = Vector2(0, dir.y);
-          }
-          if (movementKeys.contains("S")) dir = Vector2(dir.x, 1);
-          if (!movementKeys.contains("S") && dir.y == 1) {
-            dir = Vector2(dir.x, 0);
-          }
-          if (movementKeys.isEmpty) dir = Vector2.zero();
-          if (dir != Vector2.zero()) oldDir = dir;
-        }
-
-        if (attackKeys.isEmpty) setState(AS.none, as);
-        if (attackKeys.length == 1) {
-          if (attackKeys.contains("K")) setState(AS.shoot, as);
-          if (attackKeys.contains("L")) setState(AS.laser, as);
-        } else {
-          setState(AS.none, as);
-        }
-      }
-    }
-    return KeyEventResult.ignored;
-  }
-
-  Vector2 dir = Vector2.zero();
-  Vector2 oldDir = Vector2.zero();
-  double deAcc = 0.3;
+class Player extends Shooter {
+  Player({
+    required super.color,
+    required super.initialPosition,
+  });
 
   @override
-  void handleMovement() {
-    if (dir == Vector2.zero() && (vel.x > 0 || vel.y > 0)) {
-      vel = (vel - Vector2.all(deAcc))
-        ..clamp(Vector2.zero(), Vector2.all(maxVelocity));
-      position += (Vector2(vel.x * oldDir.x, vel.y * oldDir.y))
-        ..clamp(Vector2(-maxVelocity, -maxVelocity),
-            Vector2(maxVelocity, maxVelocity));
-    } else {
-      vel = (vel + Vector2.all(acc))
-        ..clamp(Vector2.zero(), Vector2.all(maxVelocity));
-      position += (Vector2(vel.x * dir.x, vel.y * dir.y))
-        ..clamp(Vector2(-maxVelocity, -maxVelocity),
-            Vector2(maxVelocity, maxVelocity));
+  Future<void> onLoad() async {
+    await super.onLoad();
+
+    game.add(
+      KeyboardListenerComponent(
+        keyDown: {
+          LogicalKeyboardKey.keyA: (keysPressed) {
+            mDir(-1, null);
+            return true;
+          },
+          LogicalKeyboardKey.keyD: (keysPressed) {
+            mDir(1, null);
+            return true;
+          },
+          LogicalKeyboardKey.keyW: (keysPressed) {
+            mDir(null, -1);
+            return true;
+          },
+          LogicalKeyboardKey.keyS: (keysPressed) {
+            mDir(null, 1);
+            return true;
+          },
+          LogicalKeyboardKey.keyK: (keysPressed) {
+            transitionState(ShooterState.shooting);
+            return true;
+          },
+          LogicalKeyboardKey.keyL: (keysPressed) {
+            transitionState(ShooterState.killing);
+            return true;
+          },
+        },
+        keyUp: {
+          LogicalKeyboardKey.keyA: (keysPressed) {
+            if (_mDir.x == -1) mDir(0, null);
+            return true;
+          },
+          LogicalKeyboardKey.keyD: (keysPressed) {
+            if (_mDir.x == 1) mDir(0, null);
+            return true;
+          },
+          LogicalKeyboardKey.keyW: (keysPressed) {
+            if (_mDir.y == -1) mDir(null, 0);
+            return true;
+          },
+          LogicalKeyboardKey.keyS: (keysPressed) {
+            if (_mDir.y == 1) mDir(null, 0);
+            return true;
+          },
+          LogicalKeyboardKey.keyK: (keysPressed) {
+            transitionState(ShooterState.idle);
+            return true;
+          },
+          LogicalKeyboardKey.keyL: (keysPressed) {
+            transitionState(ShooterState.idle);
+            return true;
+          },
+        },
+      ),
+    );
+  }
+
+  @override
+  void update(double dt) {
+    super.update(dt);
+
+    if (!game.started) return;
+
+    position += _mDir * (movementStepLimit ?? 1) * speed;
+
+    if (state == ShooterState.stunned) {
+      final finished = tickStunTimer(dt);
+      if (finished == true) {
+        transitionState(ShooterState.idle);
+      }
     }
   }
 
-  // ! =============================== Finite State Machine
+  Vector2 _mDir = Vector2.zero();
+
+  void mDir(double? x, double? y) => _mDir = Vector2(x ?? _mDir.x, y ?? _mDir.y);
 
   @override
-  void stateLogic() {
-    if (ls == LS.alive) {
-      if (enemy.ls == LS.alive) {
-        if (ms == MS.move) {
-          if (as == AS.shoot) {
-            vel.clamp(Vector2.zero(), Vector2.all(shootingVelocity));
-          } else if (as == AS.laser) {
-            vel = Vector2.zero();
-          }
-        } else if (ms == MS.stun) {
-          vel.clamp(Vector2.zero(), Vector2.all(stunnedVelocity));
-        }
-      } else {
-        color = SquareComponent.primaryColor;
-        cancelShoot();
-        deactivateLaser();
-        vel = Vector2.zero();
-      }
-    } else {
-      cancelShoot();
-      deactivateLaser();
+  void onExitState() {
+    switch (state) {
+      case ShooterState.idle:
+        break;
+      case ShooterState.stunned:
+        resetMovementStepLimit();
+        resetColor();
+      case ShooterState.shooting:
+        resetMovementStepLimit();
+        stopAttack(0);
+      case ShooterState.killing:
+        resetMovementStepLimit();
+        cancelKilling();
+    }
+  }
+
+  @override
+  void onEnterBaseState() {
+    switch (state) {
+      case ShooterState.idle:
+        break;
+      case ShooterState.stunned:
+        setStunnedColor();
+        setMovementStepLimitOnStunned();
+      case ShooterState.shooting:
+        setMovementStepLimitOnShooting();
+        attack(0);
+      case ShooterState.killing:
+        setMovementStepLimitOnKilling();
+        tryKillTarget();
     }
   }
 }
