@@ -1,7 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flame/components.dart';
-import 'package:square_shooter_flame/src/behavior_tree/behavior_tree_stateless.dart';
+import 'package:square_shooter_flame/src/stateless_behavior_tree.dart';
 import 'package:square_shooter_flame/src/shooter.dart';
 
 class Agent extends Shooter with AgentMovement, BehaviorTree {

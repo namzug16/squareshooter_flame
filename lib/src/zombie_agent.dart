@@ -1,4 +1,3 @@
-
 import 'package:square_shooter_flame/src/agent.dart';
 import 'package:square_shooter_flame/src/shooter.dart';
 

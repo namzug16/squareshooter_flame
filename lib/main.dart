@@ -1,5 +1,8 @@
+import 'dart:math';
+
 import 'package:flame/game.dart';
 import 'package:flame/input.dart';
+import 'package:flame/timer.dart';
 import 'package:flutter/material.dart';
 import 'package:square_shooter_flame/src/agent.dart';
 import 'package:square_shooter_flame/src/count_down_timer.dart';
@@ -109,5 +112,32 @@ class SquareShooter extends FlameGame with HasCollisionDetection, HasKeyboardHan
         },
       ),
     );
+  }
+
+  Timer _shakeTimer = Timer(0.5, autoStart: false);
+  int _shakeStrength = 20;
+
+  void lightShake() {
+    _shakeStrength = 5;
+    _shakeTimer.start();
+  }
+
+  void strongShake() {
+    _shakeStrength = 20;
+    _shakeTimer.start();
+  }
+
+  @override
+  void update(double dt) {
+    super.update(dt);
+    _shakeTimer.update(dt);
+  }
+
+  @override
+  void render(Canvas canvas) {
+    if (_shakeTimer.isRunning()) {
+      canvas.translate(Random().nextDouble() * _shakeStrength, Random().nextDouble() * _shakeStrength);
+    }
+    super.render(canvas);
   }
 }

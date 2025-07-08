@@ -84,6 +84,7 @@ class Bullet extends PositionComponent with HasGameReference<SquareShooter>, Col
         ),
       );
       removeFromParent();
+      game.lightShake();
     }
   }
 }

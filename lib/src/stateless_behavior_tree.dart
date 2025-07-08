@@ -13,7 +13,7 @@ mixin BehaviorTree on Component {
         return true;
       };
 
-  /// RETURNS ON TRUE/NULL 
+  /// RETURNS ON TRUE/NULL
   BTNode fallback(List<BTNode> children) => (double dt) {
         for (int i = 0; i < children.length; i++) {
           final n = children[i];

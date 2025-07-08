@@ -129,9 +129,10 @@ class Shooter extends PositionComponent with HasGameReference<SquareShooter>, Co
   void onCollision(Set<Vector2> intersectionPoints, PositionComponent other) {
     super.onCollision(intersectionPoints, other);
 
-    if (other is Laser && other.owner != this && other.activated) {
+    if (other is Laser && other.owner != this && other.activated && !isDead) {
       isDead = true;
       removeFromParent();
+      game.strongShake();
       game.add(
         ShockWave(
           position: position,
