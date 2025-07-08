@@ -5,7 +5,11 @@ import 'package:square_shooter_flame/src/stateless_behavior_tree.dart';
 import 'package:square_shooter_flame/src/shooter.dart';
 
 class Agent extends Shooter with AgentMovement, BehaviorTree {
-  Agent({required super.color, required super.initialPosition});
+  Agent({
+    required super.color,
+    required super.initialPosition,
+    super.size = 60,
+  });
 
   late final movementBT = fallback([
     (_) => isDead,
@@ -21,6 +25,10 @@ class Agent extends Shooter with AgentMovement, BehaviorTree {
       (_) => target == null || target!.isDead,
       getTarget,
       setRandomAttackCooldownTimer,
+    ]),
+    sequence([
+      (_) => target?.state == ShooterState.stunned,
+      transitionStateFromBT(ShooterState.killing),
     ]),
     sequence([
       tickAttackCooldownTimer,
@@ -118,7 +126,11 @@ class Agent extends Shooter with AgentMovement, BehaviorTree {
 
     if (targets.isEmpty) return null;
 
-    target = targets.first;
+    if (targets.length > 1) {
+      target = targets[math.Random().nextInt(targets.length)];
+    } else {
+      target = targets.first;
+    }
 
     return true;
   }

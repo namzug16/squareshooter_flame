@@ -1,53 +1,53 @@
 import 'dart:math';
 import 'package:flame/components.dart';
 import 'package:flutter/material.dart';
+import 'package:square_shooter_flame/main.dart';
 import 'package:square_shooter_flame/src/helpers.dart';
 
-class CountDownTimer extends TimerComponent {
+class CountDownTimer extends TimerComponent with HasGameReference<SquareShooterGame> {
   final Function callback;
   final Vector2 position;
 
   CountDownTimer({
     required this.callback,
     required this.position,
-  }) : super(
-          period: 3,
-          removeOnFinish: true,
-          onTick: () {
-            callback.call();
-          },
-        );
+  }) : super(period: 5, removeOnFinish: true, onTick: () => callback.call());
 
-  double sweepAngle = 0;
-  int time = 0;
-  final paint = Paint()
-    ..color = Colors.white
-    ..style = PaintingStyle.stroke
-    ..strokeWidth = 5.0
-    ..strokeCap = StrokeCap.round;
+  double _sweepAngle = 0;
+  int _time = 0;
+  double _size = 0;
 
-  static const double size = 100;
+  @override
+  Future<void> onLoad() async {
+    await super.onLoad();
+    _size = game.size.x * 0.15;
+  }
 
   @override
   void render(Canvas canvas) {
+    final paint = Paint()
+      ..color = Colors.white
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 5.0
+      ..strokeCap = StrokeCap.round;
     canvas.save();
-    canvas.translate(position.x - size / 2, position.y - size / 2);
-    canvas.drawArc(Vector2.all(size).toRect(), 0, sweepAngle, false, paint);
+    canvas.translate(position.x, position.y);
+    canvas.drawArc(Rect.fromCircle(center: Offset.zero, radius: _size), 0, _sweepAngle, false, paint);
     final TextPainter tp = TextPainter(
       text: TextSpan(
-        text: time.toString(),
-        style: const TextStyle(fontSize: size, fontWeight: FontWeight.bold, color: Colors.white),
+        text: _time.toString(),
+        style: TextStyle(fontSize: _size, fontWeight: FontWeight.bold, color: Colors.white),
       ),
       textDirection: TextDirection.ltr,
     )..layout();
-    tp.paint(canvas, Offset(size / 2 - tp.width / 2, size / 2 - tp.height / 2));
+    tp.paint(canvas, Offset(- tp.width / 2, - tp.height / 2));
     canvas.restore();
   }
 
   @override
   void update(double dt) {
     super.update(dt);
-    sweepAngle = inverseLerp(timer.progress, 0.0, 2 * pi);
-    time = inverseLerp(timer.progress, 0.0, 3.0).floor();
+    _sweepAngle = inverseLerp(timer.progress, 0.0, 2 * pi);
+    _time = inverseLerp(timer.progress, 5.0, 0.0).floor() + 1;
   }
 }

@@ -13,15 +13,18 @@ const _stunDuration = 1.2;
 
 enum ShooterState { idle, stunned, shooting, killing }
 
-class Shooter extends PositionComponent with HasGameReference<SquareShooter>, CollisionCallbacks {
+class Shooter extends PositionComponent with HasGameReference<SquareShooterGame>, CollisionCallbacks {
   static const Color stunnedColor = Color.fromRGBO(244, 102, 71, 1);
 
   final Color color;
 
   final Vector2 initialPosition;
 
-  Shooter({required this.color, required this.initialPosition, double size = 60})
-      : bodyColor = color,
+  Shooter({
+    required this.color,
+    required this.initialPosition,
+    double size = 60,
+  })  : bodyColor = color,
         super(size: Vector2.all(size), anchor: Anchor.center, position: initialPosition);
 
   Color bodyColor;
@@ -61,10 +64,23 @@ class Shooter extends PositionComponent with HasGameReference<SquareShooter>, Co
   }
 
   void transitionState(ShooterState newState) {
-    if (newState == state) return;
+    if (!_canTransition(newState)) return;
     onExitState();
     state = newState;
     onEnterBaseState();
+  }
+
+  bool _canTransition(ShooterState newState) {
+    if (newState == state) return false;
+
+    if (state == ShooterState.stunned) {
+      return switch (newState) {
+        ShooterState.idle => true,
+        _ => false,
+      };
+    }
+
+    return true;
   }
 
   void onExitState() {
@@ -129,8 +145,10 @@ class Shooter extends PositionComponent with HasGameReference<SquareShooter>, Co
   void onCollision(Set<Vector2> intersectionPoints, PositionComponent other) {
     super.onCollision(intersectionPoints, other);
 
-    if (other is Laser && other.owner != this && other.activated && !isDead) {
+    if (other is Laser && other.owner != this && other.target == this && other.activated && !isDead) {
       isDead = true;
+      cancelKilling();
+      stopAttack(0);
       removeFromParent();
       game.strongShake();
       game.add(
@@ -270,14 +288,19 @@ class Shooter extends PositionComponent with HasGameReference<SquareShooter>, Co
   Laser? attachedLaser;
 
   void tryKillTarget() {
+    if (target == null) return;
+
     final laser = Laser(
       initialPosition: center,
       directionVector: getDirectionVectorToTarget(),
       color: color,
       owner: this,
+      target: target!,
       strokeWidth: size.x * 0.1,
     );
+
     game.add(laser);
+
     attachedLaser = laser;
   }
 

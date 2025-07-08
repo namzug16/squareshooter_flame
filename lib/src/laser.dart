@@ -15,6 +15,7 @@ class Laser extends PositionComponent with CollisionCallbacks {
   final Vector2 directionVector;
   final Color color;
   final Shooter owner;
+  final Shooter target;
   final double strokeWidth;
 
   Laser({
@@ -22,6 +23,7 @@ class Laser extends PositionComponent with CollisionCallbacks {
     required this.directionVector,
     required this.color,
     required this.owner,
+    required this.target,
     required this.strokeWidth,
   }) : super(
           position: initialPosition,

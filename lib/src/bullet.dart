@@ -9,7 +9,7 @@ import 'package:square_shooter_flame/src/shooter.dart';
 
 const _bulletSpeed = 1300.0;
 
-class Bullet extends PositionComponent with HasGameReference<SquareShooter>, CollisionCallbacks {
+class Bullet extends PositionComponent with HasGameReference<SquareShooterGame>, CollisionCallbacks {
   Bullet({
     required this.color,
     required this.owner,

@@ -73,7 +73,17 @@ class Player extends Shooter {
   @override
   void update(double dt) {
     super.update(dt);
+
+    if (!game.started) return;
+
     position += _mDir * (movementStepLimit ?? 1) * speed;
+
+    if (state == ShooterState.stunned) {
+      final finished = tickStunTimer(dt);
+      if (finished == true) {
+        transitionState(ShooterState.idle);
+      }
+    }
   }
 
   Vector2 _mDir = Vector2.zero();
