@@ -1,9 +1,13 @@
+import 'dart:math' as math;
+
 import 'package:flame/collisions.dart';
 import 'package:flame/components.dart';
 import 'package:flutter/material.dart';
 import 'package:square_shooter_flame/main.dart';
 import 'package:square_shooter_flame/src/effects.dart';
 import 'package:square_shooter_flame/src/shooter.dart';
+
+const _bulletSpeed = 1300.0;
 
 class Bullet extends PositionComponent with HasGameReference<SquareShooter>, CollisionCallbacks {
   Bullet({
@@ -12,7 +16,7 @@ class Bullet extends PositionComponent with HasGameReference<SquareShooter>, Col
     required this.dir,
     required Vector2 initialPosition,
     required double size,
-  }) : super(size: Vector2.all(size), anchor: Anchor.center, position: initialPosition);
+  }) : super(size: Vector2(size, 5), anchor: Anchor.center, position: initialPosition, angle: math.atan2(dir.y, dir.x));
 
   final Shooter owner;
 
@@ -24,15 +28,13 @@ class Bullet extends PositionComponent with HasGameReference<SquareShooter>, Col
   Future<void> onLoad() async {
     await super.onLoad();
     debugMode = gameDebugMode;
-    add(CircleHitbox.relative(1, parentSize: size));
+    add(RectangleHitbox.relative(Vector2(1, 1), parentSize: size));
   }
-
-  final _speed = 1000.0;
 
   @override
   void update(double dt) {
     super.update(dt);
-    position += (dir * _speed * dt);
+    position += (dir * _bulletSpeed * dt);
     if (position.y > game.size.y || position.y < 0 || position.x > game.size.x || position.x < 0) {
       removeFromParent();
     }
@@ -40,7 +42,21 @@ class Bullet extends PositionComponent with HasGameReference<SquareShooter>, Col
 
   @override
   void render(Canvas canvas) {
-    canvas.drawCircle(Offset(size.x * 0.5, size.y * 0.5), size.x * 0.5, Paint()..color = color);
+    super.render(canvas);
+    canvas.save();
+    final path = Path()
+      ..moveTo(0, size.y * 0.5)
+      ..lineTo(size.x, size.y * 0.5);
+    canvas.drawPath(
+      path,
+      Paint()
+        ..color = color
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = size.y
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round,
+    );
+    canvas.restore();
   }
 
   @override

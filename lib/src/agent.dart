@@ -7,23 +7,25 @@ import 'package:square_shooter_flame/src/shooter.dart';
 class Agent extends Shooter with AgentMovement, BehaviorTree {
   Agent({required super.color, required super.initialPosition});
 
-  late final movementBT = sequence([
-    (_) => !isDead,
-    forceSuccess(sequence([
+  late final movementBT = fallback([
+    (_) => isDead,
+    sequence([
       hasArrivedToDesiredPosition,
-      setDesiredPositionValues,
-    ])),
+      setNewDesiredPositionValues,
+    ]),
     move,
   ]);
 
-  late final idleBT = sequence([
-    fallback([
-      (_) => target != null,
+  late final idleBT = fallback([
+    sequence([
+      (_) => target == null || target!.isDead,
       getTarget,
       setRandomAttackCooldownTimer,
     ]),
-    tickAttackCooldownTimer,
-    transitionStateFromBT(ShooterState.shooting),
+    sequence([
+      tickAttackCooldownTimer,
+      transitionStateFromBT(ShooterState.shooting),
+    ]),
   ]);
 
   late final shootingBT = fallback([
@@ -38,10 +40,10 @@ class Agent extends Shooter with AgentMovement, BehaviorTree {
   ]);
 
   late final killingBT = fallback([
-    // sequence([
-    //   inverter((_) => attachedLaser?.targetIsInAim() ?? true),
-    //   transitionStateFromBT(ShooterState.idle),
-    // ]),
+    sequence([
+      (_) => !(attachedLaser?.targetIsInAim() ?? false),
+      transitionStateFromBT(ShooterState.idle),
+    ]),
     sequence([
       (_) => target?.isDead == true,
       transitionStateFromBT(ShooterState.idle),
@@ -56,19 +58,22 @@ class Agent extends Shooter with AgentMovement, BehaviorTree {
   @override
   void update(double dt) {
     super.update(dt);
+    stateBT(dt);
+  }
 
+  void stateBT(double dt) {
     if (game.started) {
-      // movementBT(dt);
+      movementBT(dt);
 
       switch (state) {
         case ShooterState.idle:
-          // idleBT(dt);
+          idleBT(dt);
         case ShooterState.stunned:
           stunnedBT(dt);
         case ShooterState.shooting:
-          // shootingBT(dt);
+          shootingBT(dt);
         case ShooterState.killing:
-          // killingBT(dt);
+          killingBT(dt);
       }
     }
   }
@@ -110,11 +115,11 @@ class Agent extends Shooter with AgentMovement, BehaviorTree {
 
   bool? getTarget(double dt) {
     final targets = game.shooters.where((element) => element != this && !element.isDead).toList();
-    if (targets.isNotEmpty) {
-      target = targets.first;
-    } else {
-      target = null;
-    }
+
+    if (targets.isEmpty) return null;
+
+    target = targets.first;
+
     return true;
   }
 
@@ -148,34 +153,24 @@ class Agent extends Shooter with AgentMovement, BehaviorTree {
 mixin AgentMovement on Shooter {
   late Vector2 _start;
   Vector2? _end;
-  double _duration = 0;
-  double _elapsed = 0;
 
   bool? hasArrivedToDesiredPosition(double dt) {
     _end ??= position;
     return position.distanceTo(_end!) <= 5;
   }
 
-  bool? setDesiredPositionValues(double dt) {
+  bool? setNewDesiredPositionValues(double dt) {
     _start = position;
     _end = getNextPosition();
-    final distance = _start.distanceTo(_end!);
-    _duration = distance / speed;
-    _elapsed = 0;
     return true;
   }
 
   bool? move(double dt) {
     if (movementStepLimit == 0) return true;
-    _elapsed += dt * (movementStepLimit ?? 1);
-    double t = math.min(1.0, _elapsed / _duration);
-    t = _ease(t);
-    Vector2 newPos = _start + (_end! - _start) * t;
-    position = newPos;
+    final dir = ((_end ?? _start) - _start).normalized();
+    position += dir * (movementStepLimit ?? 1) * speed;
     return true;
   }
-
-  double _ease(double t) => t * t * (3 - 2 * t);
 
   Vector2 getNextPosition() {
     final targetPosition = target?.position ?? game.size / 2;

@@ -32,9 +32,11 @@ class Player extends Shooter {
             return true;
           },
           LogicalKeyboardKey.keyK: (keysPressed) {
-            print("SHOOTING WITH K");
-            print(keysPressed);
             transitionState(ShooterState.shooting);
+            return true;
+          },
+          LogicalKeyboardKey.keyL: (keysPressed) {
+            transitionState(ShooterState.killing);
             return true;
           },
         },
@@ -56,8 +58,10 @@ class Player extends Shooter {
             return true;
           },
           LogicalKeyboardKey.keyK: (keysPressed) {
-            print("STOPPED SHOOTING WITH K");
-            print(keysPressed);
+            transitionState(ShooterState.idle);
+            return true;
+          },
+          LogicalKeyboardKey.keyL: (keysPressed) {
             transitionState(ShooterState.idle);
             return true;
           },
@@ -69,7 +73,7 @@ class Player extends Shooter {
   @override
   void update(double dt) {
     super.update(dt);
-    position += (_mDir * (movementStepLimit ?? 1) * 10);
+    position += _mDir * (movementStepLimit ?? 1) * speed;
   }
 
   Vector2 _mDir = Vector2.zero();
@@ -89,7 +93,7 @@ class Player extends Shooter {
         stopAttack(0);
       case ShooterState.killing:
         resetMovementStepLimit();
-        tryKillTarget();
+        cancelKilling();
     }
   }
 
@@ -106,6 +110,7 @@ class Player extends Shooter {
         attack(0);
       case ShooterState.killing:
         setMovementStepLimitOnKilling();
+        tryKillTarget();
     }
   }
 }

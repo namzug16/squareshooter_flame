@@ -9,6 +9,8 @@ import 'package:square_shooter_flame/src/effects.dart';
 import 'package:square_shooter_flame/src/laser.dart';
 import 'package:square_shooter_flame/src/progress_component.dart';
 
+const _stunDuration = 1.2;
+
 enum ShooterState { idle, stunned, shooting, killing }
 
 class Shooter extends PositionComponent with HasGameReference<SquareShooter>, CollisionCallbacks {
@@ -124,8 +126,8 @@ class Shooter extends PositionComponent with HasGameReference<SquareShooter>, Co
   }
 
   @override
-  void onCollisionStart(Set<Vector2> intersectionPoints, PositionComponent other) {
-    super.onCollisionStart(intersectionPoints, other);
+  void onCollision(Set<Vector2> intersectionPoints, PositionComponent other) {
+    super.onCollision(intersectionPoints, other);
 
     if (other is Laser && other.owner != this && other.activated) {
       isDead = true;
@@ -159,6 +161,11 @@ class Shooter extends PositionComponent with HasGameReference<SquareShooter>, Co
       );
       return;
     }
+  }
+
+  @override
+  void onCollisionStart(Set<Vector2> intersectionPoints, PositionComponent other) {
+    super.onCollisionStart(intersectionPoints, other);
 
     if (other is Bullet && other.owner != this) {
       transitionState(ShooterState.stunned);
@@ -179,7 +186,7 @@ class Shooter extends PositionComponent with HasGameReference<SquareShooter>, Co
 
   bool? tickStunTimer(double dt) {
     if (_stunTimer == null) {
-      _stunTimer = TimerComponent(period: 1, removeOnFinish: true);
+      _stunTimer = TimerComponent(period: _stunDuration, removeOnFinish: true);
       add(_stunTimer!);
       add(ProgressComponent(lowerBound: 0, upperBound: 0.8, period: 1, onTick: () {}));
       return null;
@@ -280,6 +287,8 @@ class Shooter extends PositionComponent with HasGameReference<SquareShooter>, Co
   //}}}
 
   //NOTE: Movement {{{
+  final speed = 8.0;
+
   double? movementStepLimit;
 
   bool canAttack() => (target?.distance(this) ?? 0) > size.x * 3;
@@ -293,7 +302,7 @@ class Shooter extends PositionComponent with HasGameReference<SquareShooter>, Co
   }
 
   void setMovementStepLimitOnShooting() {
-    _setMovementStepLimit(0.03);
+    _setMovementStepLimit(0.3);
   }
 
   void setMovementStepLimitOnKilling() {
@@ -303,7 +312,5 @@ class Shooter extends PositionComponent with HasGameReference<SquareShooter>, Co
   void setMovementStepLimitOnStunned() {
     _setMovementStepLimit(0.1);
   }
-
-  final speed = 130;
   //}}}
 }

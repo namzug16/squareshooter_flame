@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'dart:typed_data';
 
 import 'package:flame/collisions.dart';
 import 'package:flame/components.dart';
@@ -9,7 +10,7 @@ import 'package:square_shooter_flame/src/shooter.dart';
 
 const _chargeTime = 1.0;
 
-class Laser extends PositionComponent with HasGameRef<SquareShooter>, CollisionCallbacks {
+class Laser extends PositionComponent with CollisionCallbacks {
   final Vector2 initialPosition;
   final Vector2 directionVector;
   final Color color;
@@ -23,7 +24,6 @@ class Laser extends PositionComponent with HasGameRef<SquareShooter>, CollisionC
     required this.owner,
     required this.strokeWidth,
   }) : super(
-          // position: Vector2(initialPosition.x, initialPosition.y - strokeWidth * 0.5 ),
           position: initialPosition,
           size: Vector2(strokeWidth, 5000),
           angle: -math.atan2(directionVector.x, directionVector.y),
@@ -68,20 +68,30 @@ class Laser extends PositionComponent with HasGameRef<SquareShooter>, CollisionC
     }
   }
 
+  bool? _targetIsInAim;
+
+  //NOTE: it returns false as soon as it is called because the collision
+  //cycle has not yet started. That's why we need [_targetIsInAim]
   bool targetIsInAim() {
-    return activeCollisions.any((e) => e is Shooter && e != owner);
+    final res = activeCollisions.any((e) => e is Shooter && e != owner);
+    if (_targetIsInAim == null) {
+      if (res) _targetIsInAim = res;
+      return true;
+    }
+    return res;
   }
+
+  RectangleHitbox? _hitbox;
 
   @override
   Future<void> onLoad() async {
     await super.onLoad();
-    debugMode = true;
-    add(
-      RectangleHitbox.relative(
-        Vector2(1, 1),
-        parentSize: size,
-      ),
+    debugMode = gameDebugMode;
+    _hitbox = RectangleHitbox.relative(
+      Vector2(1, 1),
+      parentSize: size,
     );
+    add(_hitbox!);
   }
 
   @override
@@ -89,10 +99,41 @@ class Laser extends PositionComponent with HasGameRef<SquareShooter>, CollisionC
     canvas.save();
     canvas.rotate(math.pi * 0.5);
     final path = Path()
-      ..moveTo(0, 0)
-      ..lineTo((game.size.x * 2), 0);
+      ..moveTo(owner.size.x, 0)
+      ..lineTo((owner.game.size.x * 2), 0);
     canvas.drawPath(
       path,
+      Paint()
+        ..color = detached ? color.withOpacity(0.3) : color.withOpacity(_t.progress)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = detached ? inverseLerp(_dt.progress, strokeWidth, 0) : inverseLerp(_t.progress, 0, strokeWidth)
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round,
+    );
+    canvas.restore();
+    canvas.save();
+    canvas.rotate(math.pi * 0.5 + math.pi);
+    canvas.drawArc(
+      Rect.fromCircle(center: Offset.zero, radius: owner.size.x),
+      0,
+      detached ? inverseLerp(_dt.progress, math.pi, 0) : inverseLerp(_t.progress, 0, math.pi),
+      false,
+      Paint()
+        ..color = detached ? color.withOpacity(0.3) : color
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = detached ? inverseLerp(_dt.progress, strokeWidth, 0) : inverseLerp(_t.progress, 0, strokeWidth)
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round,
+    );
+    canvas.restore();
+    canvas.save();
+    canvas.rotate(math.pi * 0.5);
+    canvas.transform(Float64List.fromList([-1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, owner.size.x, 0, 0, 1]));
+    canvas.drawArc(
+      Rect.fromCircle(center: Offset(owner.size.x, 0), radius: owner.size.x),
+      0,
+      detached ? inverseLerp(_dt.progress, math.pi, 0) : inverseLerp(_t.progress, 0, math.pi),
+      false,
       Paint()
         ..color = detached ? color.withOpacity(0.3) : color
         ..style = PaintingStyle.stroke
@@ -103,79 +144,3 @@ class Laser extends PositionComponent with HasGameRef<SquareShooter>, CollisionC
     canvas.restore();
   }
 }
-
-// class Laser extends PositionComponent with HasHitboxes, Collidable {
-//   final Color activatedColor = const Color.fromRGBO(244, 102, 71, 1);
-//
-//   final Color color;
-//   final String owner;
-//   final double dir;
-//   final double time;
-//   double _factor = 0;
-//
-//   Laser(
-//       {required Vector2 position,
-//       required this.color,
-//       required this.dir,
-//       required this.owner,
-//       this.time = 40.0})
-//       : super(
-//           position: position,
-//           size: Vector2(2000, 2 * pi),
-//           anchor: Anchor.centerLeft,
-//         );
-//
-//   @override
-//   Future<void>? onLoad() async {
-//     await super.onLoad();
-//     addHitbox(HitboxRectangle(relation: Vector2.all(0.95)));
-//     _factor = 2 * pi / time;
-//     collidableType = CollidableType.active;
-//     actualColor = color;
-//     angle = dir - pi / 2;
-//   }
-//
-//   Color actualColor = Colors.white;
-//
-//   @override
-//   void render(Canvas canvas) {
-//     super.render(canvas);
-//     // ! hitboxes
-//     // renderHitboxes(canvas);
-//     canvas.save();
-//     canvas.translate(55, 0);
-//     canvas.drawRect(
-//         Rect.fromLTWH(0, 0, width, sweepAngle), Paint()..color = actualColor);
-//     canvas.restore();
-//     canvas.drawArc(
-//         Rect.fromCircle(center: Offset.zero, radius: 55),
-//         0,
-//         sweepAngle,
-//         false,
-//         Paint()
-//           ..color = actualColor
-//           ..style = PaintingStyle.stroke
-//           ..strokeWidth = sweepAngle);
-//   }
-//
-//   double sweepAngle = 0.0;
-//
-//   @override
-//   void update(double dt) {
-//     super.update(dt);
-//     if (sweepAngle < 2 * pi) sweepAngle += _factor;
-//     isActivated();
-//   }
-//
-//   bool isActivatedVar = false;
-//
-//   void isActivated() {
-//     final v1 = sweepAngle.toString().substring(0, 10);
-//     final v2 = (2 * pi).toString().substring(0, 10);
-//
-//     if (v1 == v2) {
-//       actualColor = activatedColor;
-//       isActivatedVar = true;
-//     }
-//   }
-// }

@@ -1,16 +1,16 @@
 import 'package:flame/game.dart';
 import 'package:flame/input.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:square_shooter_flame/src/agent.dart';
 import 'package:square_shooter_flame/src/count_down_timer.dart';
 import 'package:square_shooter_flame/src/player.dart';
 import 'package:square_shooter_flame/src/shooter.dart';
+import 'package:square_shooter_flame/src/zombie_agent.dart';
 
 const gameDebugMode = false;
 
 void main() {
-  final game = SquareShooter();
+  final game = SquareShooter(GameType.agents);
   runApp(SquareShooterGame(game));
 }
 
@@ -39,13 +39,12 @@ class SquareShooterGame extends StatelessWidget {
               child: ElevatedButton(
                 onPressed: () {
                   game.pauseEngine();
-                  print("GAME PAUSED");
                 },
                 child: const Text("STOP GAME"),
               ),
             ),
             Positioned(
-              top: 20,
+              top: 100,
               left: 0,
               child: ElevatedButton(
                 onPressed: () {
@@ -61,22 +60,16 @@ class SquareShooterGame extends StatelessWidget {
   }
 }
 
-// List<Boundary> createBoundaries(SquareShooter game) {
-//   final topLeft = Vector2.zero();
-//   final bottomRight = game.size;
-//   final topRight = Vector2(bottomRight.x, topLeft.y);
-//   final bottomLeft = Vector2(topLeft.x, bottomRight.y);
-//
-//   return [
-//     Boundary(topLeft, topRight),
-//     Boundary(topRight, bottomRight),
-//     Boundary(bottomRight, bottomLeft),
-//     Boundary(bottomLeft, topLeft),
-//   ];
-// }
+enum GameType {
+  agents,
+  player,
+  test,
+}
 
 class SquareShooter extends FlameGame with HasCollisionDetection, HasKeyboardHandlerComponents {
-  SquareShooter();
+  SquareShooter(this.type);
+
+  final GameType type;
 
   bool started = false;
 
@@ -85,41 +78,36 @@ class SquareShooter extends FlameGame with HasCollisionDetection, HasKeyboardHan
   @override
   Future<void>? onLoad() async {
     await super.onLoad();
-    final ag1 = Agent(color: Colors.yellowAccent, initialPosition: Vector2(100, 100));
-    // final ag2 = Agent(color: Colors.green, initialPosition: Vector2(500, 500));
-    final player = Player(color: Colors.greenAccent, initialPosition: Vector2(500, 500));
-    // final ag3 = Agent(color: Colors.greenAccent, initialPosition: Vector2(500, 500));
 
-    add(ag1);
-    add(player);
-    // add(ag2);
-    // add(ag3);
-    // shooters.addAll([ag1, ag2, ag3]);
-    // shooters.addAll([ag1, ag2]);
-    shooters.addAll([ag1, player]);
+    switch (type) {
+      case GameType.agents:
+        final ag1 = Agent(color: Colors.yellowAccent, initialPosition: Vector2(100, 100));
+        final ag2 = Agent(color: Colors.green, initialPosition: Vector2(500, 500));
+        final ag3 = Agent(color: Colors.greenAccent, initialPosition: Vector2(700, 700));
+        shooters.addAll([ag1, ag2, ag3]);
+      case GameType.player:
+        final ag = Agent(color: Colors.yellowAccent, initialPosition: Vector2(100, 100));
+        final player = Player(color: Colors.greenAccent, initialPosition: Vector2(500, 500));
+        player.target = ag;
+        shooters.addAll([ag, player]);
+      case GameType.test:
+        final zag = ZombieAgent(color: Colors.yellowAccent, initialPosition: Vector2(100, 100));
+        final player = Player(color: Colors.greenAccent, initialPosition: Vector2(500, 500));
+        player.target = zag;
+        shooters.addAll([zag, player]);
+    }
 
-    player.target = ag1;
+    for (final c in shooters) {
+      add(c);
+    }
 
     add(
       CountDownTimer(
-          position: Vector2(100, 100),
-          callback: () {
-            started = true;
-          }),
+        position: Vector2(100, 100),
+        callback: () {
+          started = true;
+        },
+      ),
     );
   }
-
-  // @override
-  // KeyEventResult onKeyEvent(
-  //   KeyEvent event,
-  //   Set<LogicalKeyboardKey> keysPressed,
-  // ) {
-  //   // if (player != null) {
-  //   //   player!.keyboardInput(
-  //   //     event,
-  //   //     keysPressed,
-  //   //   );
-  //   // }
-  //   return KeyEventResult.ignored;
-  // }
 }
